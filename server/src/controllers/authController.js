@@ -18,13 +18,20 @@ function issueSession(res, userId) {
 }
 
 export async function signup(req, res) {
-  const { email, password, displayName, accountType = 'athlete' } = req.body;
+  const { email, password, confirmPassword, firstName, lastName, accountType = 'athlete' } = req.body;
 
-  if (!email || !password || !displayName) {
-    return res.status(400).json({ error: 'email, password, and displayName are required' });
+  const trimmedFirst = String(firstName ?? '').trim();
+  const trimmedLast = String(lastName ?? '').trim();
+  const displayName = `${trimmedFirst} ${trimmedLast}`.trim();
+
+  if (!email || !password || !trimmedFirst || !trimmedLast) {
+    return res.status(400).json({ error: 'email, password, first name, and last name are required' });
   }
   if (password.length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+  if (password !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match' });
   }
   if (!ACCOUNT_TYPES.includes(accountType)) {
     return res.status(400).json({ error: "accountType must be 'athlete', 'coach', or 'both'" });

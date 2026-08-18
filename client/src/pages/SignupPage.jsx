@@ -12,9 +12,11 @@ const ACCOUNT_TYPES = [
 export function SignupPage() {
   const { signup } = useAuth();
   const navigate = useNavigate();
-  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [accountType, setAccountType] = useState('athlete');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -22,9 +24,13 @@ export function SignupPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
     setSubmitting(true);
     try {
-      await signup(email, password, displayName, accountType);
+      await signup(email, password, confirmPassword, firstName, lastName, accountType);
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -38,16 +44,28 @@ export function SignupPage() {
       <form className="auth-form" onSubmit={handleSubmit}>
         <h1>Sign up</h1>
         {error && <p className="form-error">{error}</p>}
-        <label>
-          Name
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            autoComplete="name"
-            required
-          />
-        </label>
+        <div className="form-row">
+          <label>
+            First name
+            <input
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              autoComplete="given-name"
+              required
+            />
+          </label>
+          <label>
+            Last name
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              autoComplete="family-name"
+              required
+            />
+          </label>
+        </div>
         <label>
           Email
           <input
@@ -63,6 +81,16 @@ export function SignupPage() {
           <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+        </label>
+        <label>
+          Confirm password
+          <PasswordInput
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             autoComplete="new-password"
             minLength={8}
             required

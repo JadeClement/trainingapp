@@ -20,8 +20,15 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }, []);
 
-  const signup = useCallback(async (email, password, displayName, accountType) => {
-    const data = await api.signup({ email, password, displayName, accountType });
+  const signup = useCallback(async (email, password, confirmPassword, firstName, lastName, accountType) => {
+    const data = await api.signup({
+      email,
+      password,
+      confirmPassword,
+      firstName,
+      lastName,
+      accountType,
+    });
     setUser(data.user);
   }, []);
 
