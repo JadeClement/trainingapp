@@ -68,10 +68,18 @@ export function WorkoutDetailPage() {
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;
 
+  function goBack() {
+    if (window.history.state?.idx > 0) navigate(-1);
+    else navigate('/');
+  }
+
   return (
     <div className="workout-detail-page">
       <div className="workout-detail-header">
         <div className="workout-detail-heading">
+          <button type="button" className="link-button workout-detail-back" onClick={goBack}>
+            ← Calendar
+          </button>
           <h1>{workout.title}</h1>
           <p className="workout-authorship">
             created by{' '}

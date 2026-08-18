@@ -102,7 +102,7 @@ export function WorkoutFormPage() {
         const data = await api.createWorkout(payload, athleteId);
         savedWorkout = data.workout;
       }
-      navigate(`/workouts/${savedWorkout.id}/detail`);
+      navigate(`/workouts/${savedWorkout.id}/detail`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -260,7 +260,14 @@ export function WorkoutFormPage() {
           <button type="submit" className="primary" disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </button>
-          <button type="button" onClick={() => navigate('/')} disabled={saving}>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.state?.idx > 0) navigate(-1);
+              else navigate('/');
+            }}
+            disabled={saving}
+          >
             Cancel
           </button>
           {isEditing && (

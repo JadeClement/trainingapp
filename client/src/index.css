@@ -1620,6 +1620,11 @@ button.danger {
   margin-bottom: 4px;
 }
 
+.workout-detail-back {
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
 .workout-detail-actions {
   display: flex;
   gap: 8px;
