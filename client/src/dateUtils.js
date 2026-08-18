@@ -81,3 +81,54 @@ export function formatDurationSeconds(seconds) {
   const m = mins % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
+
+export function formatDurationFraction(doneSeconds, plannedSeconds) {
+  if (!doneSeconds && !plannedSeconds) return null;
+  return `${formatDurationSeconds(doneSeconds || 0)} / ${formatDurationSeconds(plannedSeconds || 0)}`;
+}
+
+// details.distance is a free-text label ("85.0km", "1500m", ...) — parse it
+// back to meters so weekly/stats totals can be summed across workouts.
+export function parseDistanceMeters(distance) {
+  if (!distance) return 0;
+  const match = String(distance).trim().match(/^([\d.]+)\s*(km|mi|m)$/i);
+  if (!match) return 0;
+  const value = parseFloat(match[1]);
+  if (Number.isNaN(value)) return 0;
+  const unit = match[2].toLowerCase();
+  if (unit === 'km') return value * 1000;
+  if (unit === 'mi') return value * 1609.34;
+  return value;
+}
+
+function formatKmAmount(meters) {
+  const km = meters / 1000;
+  if (Math.abs(km - Math.round(km)) < 0.05) return String(Math.round(km));
+  return km.toFixed(1);
+}
+
+export function formatDistanceMeters(sport, meters) {
+  if (!meters) return null;
+  if (sport === 'swim') return `${Math.round(meters)}m`;
+  return `${formatKmAmount(meters)}km`;
+}
+
+export function formatDistanceFraction(sport, doneMeters, plannedMeters) {
+  if (!doneMeters && !plannedMeters) return null;
+  if (sport === 'swim') {
+    return `${Math.round(doneMeters)} / ${Math.round(plannedMeters)} m`;
+  }
+  return `${formatKmAmount(doneMeters)} / ${formatKmAmount(plannedMeters)} km`;
+}
+
+// Planned distance is stored separately so a 20km plan that you actually
+// ran as 5km still totals as 5 / 20. Older rows only have details.distance,
+// which is the plan while incomplete and the actual once completed.
+export function workoutDistanceMeters(workout) {
+  const actual = parseDistanceMeters(workout.details?.distance);
+  const planned = parseDistanceMeters(workout.details?.plannedDistance) || actual;
+  return {
+    planned,
+    done: workout.isCompleted ? actual : 0,
+  };
+}

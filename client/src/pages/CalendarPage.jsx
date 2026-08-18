@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { WeekLine } from '../components/WeekLine.jsx';
+import { WeekStats } from '../components/WeekStats.jsx';
 import { ClockIcon, RulerIcon } from '../components/icons.jsx';
 import {
   toISODate,
@@ -14,6 +15,7 @@ import {
   weekdayLabels,
 } from '../dateUtils.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useDragReschedule } from '../hooks/useDragReschedule.js';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const AUTO_SYNC_THROTTLE_MS = 5 * 60 * 1000;
@@ -151,6 +153,18 @@ export function CalendarPage({ athleteId }) {
     }
   }
 
+  async function handleDropOnDay(workout, newDate) {
+    setWorkouts((prev) => prev.map((w) => (w.id === workout.id ? { ...w, scheduledDate: newDate } : w)));
+    try {
+      await api.updateWorkout(workout.id, { scheduledDate: newDate });
+    } catch (err) {
+      setError(err.message);
+      load();
+    }
+  }
+
+  const { drag, bindDraggable } = useDragReschedule(handleDropOnDay);
+
   const monthLabel = anchorDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const currentMonth = startOfMonth(anchorDate).getMonth();
   const today = toISODate(new Date());
@@ -213,7 +227,10 @@ export function CalendarPage({ athleteId }) {
             return (
               <div
                 key={key}
-                className={`week-day ${key === today ? 'is-today' : ''} ${key < today ? 'is-past' : ''}`}
+                data-day-key={key}
+                className={`week-day ${key === today ? 'is-today' : ''} ${key < today ? 'is-past' : ''} ${
+                  drag?.overKey === key ? 'drop-target' : ''
+                }`}
               >
                 <div className="week-day-header">
                   <span>{DAY_NAMES[day.getDay()]}</span>
@@ -230,12 +247,19 @@ export function CalendarPage({ athleteId }) {
                 <div className="week-day-workouts">
                   {dayWorkouts.length === 0 && <p className="empty-hint">No workouts</p>}
                   {dayWorkouts.map((w) => (
-                    <WorkoutRow key={w.id} workout={w} onToggle={() => toggleComplete(w)} />
+                    <WorkoutRow
+                      key={w.id}
+                      workout={w}
+                      onToggle={() => toggleComplete(w)}
+                      isDragSource={drag?.workout.id === w.id}
+                      dragHandlers={bindDraggable(w)}
+                    />
                   ))}
                 </div>
               </div>
             );
           })}
+          <WeekStats workouts={workouts} />
         </div>
       ) : (
         <div className="month-view">
@@ -252,7 +276,10 @@ export function CalendarPage({ athleteId }) {
               return (
                 <div
                   key={key}
-                  className={`month-cell ${inMonth ? '' : 'is-outside'} ${key === today ? 'is-today' : ''}`}
+                  data-day-key={key}
+                  className={`month-cell ${inMonth ? '' : 'is-outside'} ${key === today ? 'is-today' : ''} ${
+                    drag?.overKey === key ? 'drop-target' : ''
+                  }`}
                   onClick={() => navigate(`/workouts/new?date=${key}${newWorkoutParams}`)}
                 >
                   <span className="month-cell-date">{day.getDate()}</span>
@@ -261,15 +288,19 @@ export function CalendarPage({ athleteId }) {
                       const meta = sportMeta(w.sport);
                       const duration = formatDurationSeconds(w.actualDurationSeconds ?? w.plannedDurationSeconds);
                       const distance = w.details?.distance;
+                      const { onClick: onDragClick, ...dragPointerHandlers } = bindDraggable(w, (e) =>
+                        e.stopPropagation()
+                      );
                       return (
                         <Link
                           key={w.id}
                           to={`/workouts/${w.id}/detail`}
                           reloadDocument
-                          className="chip"
+                          className={`chip ${drag?.workout.id === w.id ? 'is-drag-source' : ''}`}
                           style={{ backgroundColor: meta.color }}
                           title={w.title}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={onDragClick}
+                          {...dragPointerHandlers}
                         >
                           <div className="chip-title">
                             {w.isCompleted ? '✓ ' : ''}
@@ -299,11 +330,20 @@ export function CalendarPage({ athleteId }) {
           </div>
         </div>
       )}
+
+      {drag && (
+        <div
+          className="drag-ghost"
+          style={{ left: drag.x, top: drag.y, '--sport-color': sportMeta(drag.workout.sport).color }}
+        >
+          {drag.workout.title}
+        </div>
+      )}
     </div>
   );
 }
 
-function WorkoutRow({ workout, onToggle }) {
+function WorkoutRow({ workout, onToggle, isDragSource, dragHandlers }) {
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;
   const duration = formatDurationSeconds(workout.actualDurationSeconds ?? workout.plannedDurationSeconds);
@@ -312,7 +352,12 @@ function WorkoutRow({ workout, onToggle }) {
   return (
     <div className={`workout-row ${workout.isCompleted ? 'is-completed' : ''}`}>
       <span className="sport-dot" style={{ backgroundColor: meta.color }} />
-      <Link to={`/workouts/${workout.id}/detail`} reloadDocument className="workout-row-main">
+      <Link
+        to={`/workouts/${workout.id}/detail`}
+        reloadDocument
+        className={`workout-row-main ${isDragSource ? 'is-drag-source' : ''}`}
+        {...dragHandlers}
+      >
         <span className="workout-row-title">{workout.title}</span>
         <span className="workout-row-meta">
           {label}

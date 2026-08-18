@@ -7,7 +7,7 @@ import {
   getValidAccessToken,
   fetchActivities,
 } from '../services/stravaService.js';
-import { mapStravaSportType } from '../services/stravaMapping.js';
+import { mapStravaSportType, detailsWithPreservedPlan } from '../services/stravaMapping.js';
 import { estimateTss, recomputeTrainingLoad } from '../services/trainingLoad.js';
 
 const STATE_COOKIE = 'strava_oauth_state';
@@ -145,7 +145,7 @@ export async function sync(req, res) {
       // creating a duplicate row. Ambiguous (0 or 2+) candidates fall
       // through to the normal insert-as-new-synced-workout path below.
       const candidates = await pool.query(
-        `SELECT id FROM workouts
+        `SELECT id, details FROM workouts
          WHERE user_id = $1 AND source = 'manual' AND strava_activity_id IS NULL
            AND sport = $2 AND scheduled_date BETWEEN $3::date - INTERVAL '1 day' AND $3::date + INTERVAL '1 day'`,
         [req.userId, sport, scheduledDate]
@@ -157,7 +157,13 @@ export async function sync(req, res) {
              scheduled_date = $1, is_completed = true, source = 'strava_synced',
              strava_activity_id = $2, actual_duration_seconds = $3, details = $4, updated_at = now()
            WHERE id = $5`,
-          [scheduledDate, String(activity.id), activity.moving_time || null, details, candidates.rows[0].id]
+          [
+            scheduledDate,
+            String(activity.id),
+            activity.moving_time || null,
+            detailsWithPreservedPlan(candidates.rows[0].details, details),
+            candidates.rows[0].id,
+          ]
         );
         continue;
       }

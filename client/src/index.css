@@ -553,6 +553,36 @@ button.danger {
   opacity: 0.55;
 }
 
+.week-day.drop-target,
+.month-cell.drop-target {
+  border-color: var(--accent);
+  border-style: dashed;
+  border-width: 2px;
+}
+
+.workout-row-main.is-drag-source,
+.chip.is-drag-source {
+  opacity: 0.35;
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  transform: translate(-50%, -50%) rotate(-2deg) scale(1.05);
+  pointer-events: none;
+  background: var(--sport-color, var(--accent));
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .week-day-header {
   display: flex;
   align-items: baseline;
@@ -572,6 +602,16 @@ button.danger {
 
 .week-day-header .link-button {
   margin-left: auto;
+}
+
+.week-stats {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.week-stats .trend-section-title {
+  margin: 0 0 8px;
 }
 
 .week-day-workouts {

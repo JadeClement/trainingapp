@@ -1,5 +1,6 @@
 import pool from '../db/pool.js';
 import { getValidAccessToken, fetchStreams, fetchLaps } from '../services/stravaService.js';
+import { detailsWithPreservedPlan } from '../services/stravaMapping.js';
 import { isAcceptedCoach } from './coachController.js';
 import { recomputeTrainingLoad } from '../services/trainingLoad.js';
 
@@ -393,7 +394,7 @@ export async function linkStravaActivity(req, res) {
          strava_activity_id = $2, actual_duration_seconds = $3, details = $4, updated_at = now()
        WHERE id = $5
        RETURNING *`,
-      [synced.scheduled_date, synced.strava_activity_id, synced.actual_duration_seconds, synced.details, planned.id]
+      [synced.scheduled_date, synced.strava_activity_id, synced.actual_duration_seconds, detailsWithPreservedPlan(planned.details, synced.details), planned.id]
     );
     merged = updateResult.rows[0];
 

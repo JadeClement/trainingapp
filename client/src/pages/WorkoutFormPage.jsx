@@ -41,6 +41,8 @@ export function WorkoutFormPage() {
   const [actualMinutes, setActualMinutes] = useState('');
   const [notes, setNotes] = useState('');
   const [distance, setDistance] = useState('');
+  const [plannedDistance, setPlannedDistance] = useState('');
+  const [detailsExtra, setDetailsExtra] = useState({});
   const [visibility, setVisibility] = useState('hidden');
   const [isCompleted, setIsCompleted] = useState(false);
   const [source, setSource] = useState('manual');
@@ -63,7 +65,13 @@ export function WorkoutFormPage() {
         setPlannedMinutes(secondsToMinutesStr(w.plannedDurationSeconds));
         setActualMinutes(secondsToMinutesStr(w.actualDurationSeconds));
         setNotes(w.notes || '');
-        setDistance(w.details?.distance || '');
+        setDistance(
+          w.isCompleted
+            ? w.details?.distance || ''
+            : w.details?.plannedDistance || w.details?.distance || ''
+        );
+        setPlannedDistance(w.details?.plannedDistance || (!w.isCompleted ? w.details?.distance : '') || '');
+        setDetailsExtra(w.details || {});
         setVisibility(w.visibility);
         setIsCompleted(w.isCompleted);
         setSource(w.source);
@@ -78,6 +86,25 @@ export function WorkoutFormPage() {
     setError(null);
     setSaving(true);
 
+    const details = { ...detailsExtra };
+    if (activityType) details.activityType = activityType;
+    else delete details.activityType;
+
+    if (!isCompleted) {
+      if (distance) {
+        details.distance = distance;
+        details.plannedDistance = distance;
+      } else {
+        delete details.distance;
+        delete details.plannedDistance;
+      }
+    } else {
+      if (distance) details.distance = distance;
+      else delete details.distance;
+      if (plannedDistance) details.plannedDistance = plannedDistance;
+      else delete details.plannedDistance;
+    }
+
     const payload = {
       sport,
       title,
@@ -87,10 +114,7 @@ export function WorkoutFormPage() {
       plannedDurationSeconds: minutesStrToSeconds(plannedMinutes),
       actualDurationSeconds: minutesStrToSeconds(actualMinutes),
       isCompleted,
-      details: {
-        ...(distance ? { distance } : {}),
-        ...(activityType ? { activityType } : {}),
-      },
+      details,
     };
 
     try {
@@ -231,12 +255,17 @@ export function WorkoutFormPage() {
         )}
 
         <label>
-          Distance <span className="label-hint">(optional, any unit)</span>
+          {isCompleted ? 'Distance' : 'Planned distance'}{' '}
+          <span className="label-hint">
+            {isCompleted || sport === 'strength' || sport === 'other'
+              ? '(optional)'
+              : '(optional — used in week totals)'}
+          </span>
           <input
             type="text"
             value={distance}
             onChange={(e) => setDistance(e.target.value)}
-            placeholder="e.g. 10km, 1500m"
+            placeholder={sport === 'swim' ? 'e.g. 1500m' : 'e.g. 10km'}
           />
         </label>
 

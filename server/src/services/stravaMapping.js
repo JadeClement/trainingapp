@@ -48,3 +48,14 @@ function humanize(sportType) {
 export function mapStravaSportType(sportType) {
   return SPORT_TYPE_MAP[sportType] || { sport: 'other', activityType: humanize(sportType) };
 }
+
+// Keep the athlete's planned distance when a Strava activity is merged onto
+// a calendar entry, so week totals can still show done/planned (5 / 20 km).
+export function detailsWithPreservedPlan(existing = {}, incoming = {}) {
+  const plannedDistance = existing.plannedDistance || existing.distance;
+  return {
+    ...existing,
+    ...incoming,
+    ...(plannedDistance && !incoming.plannedDistance ? { plannedDistance } : {}),
+  };
+}
