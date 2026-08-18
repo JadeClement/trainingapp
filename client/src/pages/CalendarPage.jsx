@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { WeekLine } from '../components/WeekLine.jsx';
 import { ClockIcon, RulerIcon } from '../components/icons.jsx';
@@ -19,12 +19,20 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const AUTO_SYNC_THROTTLE_MS = 5 * 60 * 1000;
 const AUTO_SYNC_STORAGE_KEY = 'stravaLastAutoSync';
 
+function parseDateParam(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return new Date();
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 export function CalendarPage({ athleteId }) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const weekStartsOn = user?.weekStartsOn === 'sunday' ? 'sunday' : 'monday';
-  const [viewMode, setViewMode] = useState('week');
-  const [anchorDate, setAnchorDate] = useState(new Date());
+  const viewMode = searchParams.get('view') === 'month' ? 'month' : 'week';
+  const dateParam = searchParams.get('date');
+  const anchorDate = useMemo(() => parseDateParam(dateParam), [dateParam]);
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -100,18 +108,34 @@ export function CalendarPage({ athleteId }) {
     return map;
   }, [workouts]);
 
-  function goPrev() {
-    setAnchorDate((d) => addDays(d, viewMode === 'week' ? -7 : -30));
-  }
-  function goNext() {
-    setAnchorDate((d) => addDays(d, viewMode === 'week' ? 7 : 30));
-  }
-  function goToday() {
-    setAnchorDate(new Date());
+  function patchCalendarSearch(patch) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const view = patch.view ?? (next.get('view') === 'month' ? 'month' : 'week');
+        const date = patch.date ?? parseDateParam(next.get('date'));
+
+        if (view === 'month') next.set('view', 'month');
+        else next.delete('view');
+
+        const iso = toISODate(date);
+        if (iso === toISODate(new Date())) next.delete('date');
+        else next.set('date', iso);
+
+        return next;
+      },
+      { replace: true }
+    );
   }
 
-  function openWorkout(workout) {
-    navigate(`/workouts/${workout.id}/detail`);
+  function goPrev() {
+    patchCalendarSearch({ date: addDays(anchorDate, viewMode === 'week' ? -7 : -30) });
+  }
+  function goNext() {
+    patchCalendarSearch({ date: addDays(anchorDate, viewMode === 'week' ? 7 : 30) });
+  }
+  function goToday() {
+    patchCalendarSearch({ date: new Date() });
   }
 
   async function toggleComplete(workout) {
@@ -151,14 +175,14 @@ export function CalendarPage({ athleteId }) {
             <button
               type="button"
               className={viewMode === 'week' ? 'active' : ''}
-              onClick={() => setViewMode('week')}
+              onClick={() => patchCalendarSearch({ view: 'week' })}
             >
               Week
             </button>
             <button
               type="button"
               className={viewMode === 'month' ? 'active' : ''}
-              onClick={() => setViewMode('month')}
+              onClick={() => patchCalendarSearch({ view: 'month' })}
             >
               Month
             </button>
@@ -206,7 +230,7 @@ export function CalendarPage({ athleteId }) {
                 <div className="week-day-workouts">
                   {dayWorkouts.length === 0 && <p className="empty-hint">No workouts</p>}
                   {dayWorkouts.map((w) => (
-                    <WorkoutRow key={w.id} workout={w} onToggle={() => toggleComplete(w)} onOpen={() => openWorkout(w)} />
+                    <WorkoutRow key={w.id} workout={w} onToggle={() => toggleComplete(w)} />
                   ))}
                 </div>
               </div>
@@ -238,15 +262,13 @@ export function CalendarPage({ athleteId }) {
                       const duration = formatDurationSeconds(w.actualDurationSeconds ?? w.plannedDurationSeconds);
                       const distance = w.details?.distance;
                       return (
-                        <div
+                        <Link
                           key={w.id}
+                          to={`/workouts/${w.id}/detail`}
                           className="chip"
                           style={{ backgroundColor: meta.color }}
                           title={w.title}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openWorkout(w);
-                          }}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <div className="chip-title">
                             {w.isCompleted ? '✓ ' : ''}
@@ -266,7 +288,7 @@ export function CalendarPage({ athleteId }) {
                               )}
                             </div>
                           )}
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
@@ -280,7 +302,7 @@ export function CalendarPage({ athleteId }) {
   );
 }
 
-function WorkoutRow({ workout, onToggle, onOpen }) {
+function WorkoutRow({ workout, onToggle }) {
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;
   const duration = formatDurationSeconds(workout.actualDurationSeconds ?? workout.plannedDurationSeconds);
@@ -289,14 +311,14 @@ function WorkoutRow({ workout, onToggle, onOpen }) {
   return (
     <div className={`workout-row ${workout.isCompleted ? 'is-completed' : ''}`}>
       <span className="sport-dot" style={{ backgroundColor: meta.color }} />
-      <button type="button" className="workout-row-main" onClick={onOpen}>
+      <Link to={`/workouts/${workout.id}/detail`} className="workout-row-main">
         <span className="workout-row-title">{workout.title}</span>
         <span className="workout-row-meta">
           {label}
           {duration ? ` · ${duration}` : ''}
           {distance ? ` · ${distance}` : ''}
         </span>
-      </button>
+      </Link>
       <button type="button" className="complete-toggle" onClick={onToggle} aria-label="Toggle complete">
         {workout.isCompleted ? '✓' : '○'}
       </button>

@@ -603,7 +603,9 @@ button.danger {
   border: none;
   padding: 4px 0;
   text-align: left;
+  text-decoration: none;
   color: var(--text-h);
+  cursor: pointer;
 }
 
 .workout-row-title {
@@ -696,6 +698,8 @@ button.danger {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .chip-title {
