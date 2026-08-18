@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { WeekLine } from '../components/WeekLine.jsx';
 import { WeekStats } from '../components/WeekStats.jsx';
@@ -280,47 +280,29 @@ export function CalendarPage({ athleteId }) {
                   className={`month-cell ${inMonth ? '' : 'is-outside'} ${key === today ? 'is-today' : ''} ${
                     drag?.overKey === key ? 'drop-target' : ''
                   }`}
-                  onClick={() => navigate(`/workouts/new?date=${key}${newWorkoutParams}`)}
+                  onClick={() => {
+                    if (drag) return;
+                    navigate(`/workouts/new?date=${key}${newWorkoutParams}`);
+                  }}
                 >
                   <span className="month-cell-date">{day.getDate()}</span>
                   <div className="month-cell-chips">
                     {dayWorkouts.map((w) => {
-                      const meta = sportMeta(w.sport);
-                      const duration = formatDurationSeconds(w.actualDurationSeconds ?? w.plannedDurationSeconds);
-                      const distance = w.details?.distance;
                       const { onClick: onDragClick, ...dragPointerHandlers } = bindDraggable(w, (e) =>
                         e.stopPropagation()
                       );
                       return (
-                        <Link
+                        <a
                           key={w.id}
-                          to={`/workouts/${w.id}/detail`}
-                          reloadDocument
+                          href={`/workouts/${w.id}/detail`}
                           className={`chip ${drag?.workout.id === w.id ? 'is-drag-source' : ''}`}
-                          style={{ backgroundColor: meta.color }}
+                          style={{ backgroundColor: sportMeta(w.sport).color }}
                           title={w.title}
                           onClick={onDragClick}
                           {...dragPointerHandlers}
                         >
-                          <div className="chip-title">
-                            {w.isCompleted ? '✓ ' : ''}
-                            {w.title}
-                          </div>
-                          {(duration || distance) && (
-                            <div className="chip-meta">
-                              {duration && (
-                                <span className="chip-meta-item">
-                                  <ClockIcon /> {duration}
-                                </span>
-                              )}
-                              {distance && (
-                                <span className="chip-meta-item">
-                                  <RulerIcon /> {distance}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </Link>
+                          <WorkoutChipBody workout={w} />
+                        </a>
                       );
                     })}
                   </div>
@@ -333,13 +315,45 @@ export function CalendarPage({ athleteId }) {
 
       {drag && (
         <div
-          className="drag-ghost"
-          style={{ left: drag.x, top: drag.y, '--sport-color': sportMeta(drag.workout.sport).color }}
+          className="chip drag-ghost"
+          style={{
+            left: drag.x,
+            top: drag.y,
+            width: drag.width,
+            backgroundColor: sportMeta(drag.workout.sport).color,
+          }}
         >
-          {drag.workout.title}
+          <WorkoutChipBody workout={drag.workout} />
         </div>
       )}
     </div>
+  );
+}
+
+function WorkoutChipBody({ workout }) {
+  const duration = formatDurationSeconds(workout.actualDurationSeconds ?? workout.plannedDurationSeconds);
+  const distance = workout.details?.distance;
+  return (
+    <>
+      <div className="chip-title">
+        {workout.isCompleted ? '✓ ' : ''}
+        {workout.title}
+      </div>
+      {(duration || distance) && (
+        <div className="chip-meta">
+          {duration && (
+            <span className="chip-meta-item">
+              <ClockIcon /> {duration}
+            </span>
+          )}
+          {distance && (
+            <span className="chip-meta-item">
+              <RulerIcon /> {distance}
+            </span>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -352,9 +366,8 @@ function WorkoutRow({ workout, onToggle, isDragSource, dragHandlers }) {
   return (
     <div className={`workout-row ${workout.isCompleted ? 'is-completed' : ''}`}>
       <span className="sport-dot" style={{ backgroundColor: meta.color }} />
-      <Link
-        to={`/workouts/${workout.id}/detail`}
-        reloadDocument
+      <a
+        href={`/workouts/${workout.id}/detail`}
         className={`workout-row-main ${isDragSource ? 'is-drag-source' : ''}`}
         {...dragHandlers}
       >
@@ -364,7 +377,7 @@ function WorkoutRow({ workout, onToggle, isDragSource, dragHandlers }) {
           {duration ? ` · ${duration}` : ''}
           {distance ? ` · ${distance}` : ''}
         </span>
-      </Link>
+      </a>
       <button type="button" className="complete-toggle" onClick={onToggle} aria-label="Toggle complete">
         {workout.isCompleted ? '✓' : '○'}
       </button>

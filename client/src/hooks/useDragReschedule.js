@@ -5,9 +5,26 @@ const MOVE_PX = 8;
 const MOVE_LISTENER = { capture: true, passive: false };
 const END_LISTENER = { capture: true };
 
+// Hit-test day cells by geometry instead of elementFromPoint. Pointer capture
+// (and the floating ghost) make the original chip the hit target, so the
+// source day would keep the drop highlight and release would never reschedule.
 function dayKeyFromPoint(x, y) {
-  const el = document.elementFromPoint(x, y);
-  return el?.closest('[data-day-key]')?.dataset.dayKey ?? null;
+  const cells = document.querySelectorAll('[data-day-key]');
+  for (const cell of cells) {
+    const r = cell.getBoundingClientRect();
+    if (x >= r.left && x < r.right && y >= r.top && y < r.bottom) {
+      return cell.dataset.dayKey ?? null;
+    }
+  }
+  return null;
+}
+
+function swallowNextClick() {
+  const swallow = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+  };
+  window.addEventListener('click', swallow, { capture: true, once: true });
 }
 
 // Drag-to-reschedule for calendar workouts. Mouse/pen: drag starts after a
@@ -15,7 +32,7 @@ function dayKeyFromPoint(x, y) {
 // hold lifts the workout so the calendar can still scroll. Drop targets are
 // day cells tagged data-day-key="YYYY-MM-DD".
 export function useDragReschedule(onDropOnDay) {
-  const [drag, setDrag] = useState(null); // { workout, x, y, overKey } | null
+  const [drag, setDrag] = useState(null); // { workout, x, y, width, overKey } | null
   const pressRef = useRef(null);
   const suppressClickRef = useRef(false);
 
@@ -45,11 +62,26 @@ export function useDragReschedule(onDropOnDay) {
 
         const startX = e.clientX;
         const startY = e.clientY;
+        const origin = e.currentTarget.getBoundingClientRect();
         const isTouch = e.pointerType === 'touch';
         const press = {
           dragging: false,
           pointerId: e.pointerId,
           target: e.currentTarget,
+          offsetX: startX - origin.left,
+          offsetY: startY - origin.top,
+          width: origin.width,
+        };
+
+        const snapshot = (x, y) => {
+          const overKey = dayKeyFromPoint(x, y);
+          return {
+            workout,
+            x: x - press.offsetX,
+            y: y - press.offsetY,
+            width: press.width,
+            overKey: overKey && overKey !== workout.scheduledDate ? overKey : null,
+          };
         };
 
         const beginDrag = (x, y) => {
@@ -58,7 +90,15 @@ export function useDragReschedule(onDropOnDay) {
           document.body.style.touchAction = 'none';
           document.body.style.userSelect = 'none';
           document.body.style.webkitUserSelect = 'none';
-          setDrag({ workout, x, y, overKey: dayKeyFromPoint(x, y) });
+          try {
+            // Capture only after a drag has started. Capturing on pointerdown
+            // of a link swallows the browser's default navigation, so Back
+            // never gets a real history entry.
+            press.target.setPointerCapture(press.pointerId);
+          } catch {
+            // Capture can fail if the node isn't in the tree; window listeners still work.
+          }
+          setDrag(snapshot(x, y));
         };
 
         press.onMove = (ev) => {
@@ -72,12 +112,7 @@ export function useDragReschedule(onDropOnDay) {
             beginDrag(ev.clientX, ev.clientY);
           }
           ev.preventDefault();
-          setDrag({
-            workout,
-            x: ev.clientX,
-            y: ev.clientY,
-            overKey: dayKeyFromPoint(ev.clientX, ev.clientY),
-          });
+          setDrag(snapshot(ev.clientX, ev.clientY));
         };
 
         press.onUp = (ev) => {
@@ -85,6 +120,7 @@ export function useDragReschedule(onDropOnDay) {
             const overKey = dayKeyFromPoint(ev.clientX, ev.clientY);
             if (overKey && overKey !== workout.scheduledDate) onDropOnDay(workout, overKey);
             suppressClickRef.current = true;
+            swallowNextClick();
             setDrag(null);
           }
           cleanup();
@@ -94,12 +130,6 @@ export function useDragReschedule(onDropOnDay) {
           setDrag(null);
           cleanup();
         };
-
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {
-          // Capture can fail if the node isn't in the tree; window listeners still work.
-        }
 
         if (!isTouch) {
           document.body.style.userSelect = 'none';
