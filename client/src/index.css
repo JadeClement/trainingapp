@@ -182,14 +182,35 @@ textarea {
 
 @media (max-width: 480px) {
   .navbar {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
     row-gap: 10px;
+    align-items: center;
   }
 
-  .navbar-links,
-  .navbar-actions {
-    flex-basis: 100%;
+  .navbar-brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .navbar-links {
+    grid-column: 1 / -1;
     justify-content: center;
+  }
+
+  .navbar-actions {
+    display: contents;
+  }
+
+  .navbar-actions .profile-menu {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .navbar-actions .view-toggle {
+    grid-column: 1 / -1;
+    justify-self: center;
   }
 }
 
@@ -524,6 +545,14 @@ button.danger {
   border-color: var(--first-light);
 }
 
+.week-day.is-past {
+  background: var(--bg);
+}
+
+.week-day.is-past .week-day-header {
+  opacity: 0.55;
+}
+
 .week-day-header {
   display: flex;
   align-items: baseline;
@@ -587,11 +616,6 @@ button.danger {
   font-variant-numeric: tabular-nums;
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.workout-row.is-completed .workout-row-title {
-  text-decoration: line-through;
-  opacity: 0.6;
 }
 
 .complete-toggle {
@@ -1491,6 +1515,7 @@ button.danger {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  max-width: 480px;
   margin-bottom: 16px;
 }
 

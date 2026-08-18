@@ -27,14 +27,16 @@ function toDateString(d) {
   return d.toISOString().slice(0, 10);
 }
 
-// Matches the app's Sunday-start week convention (see client dateUtils.js
+// Matches the viewer's week-start preference (see client dateUtils.js
 // startOfWeek) so this page's "week" lines up with the calendar's. `anchor`
 // is whatever date the caller is currently looking at — defaults to today,
 // but paging back/forward moves it to an earlier/later week, month, or year.
-function periodBounds(period, anchor) {
+function periodBounds(period, anchor, weekStartsOn = 'monday') {
   if (period === 'week') {
     const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
-    start.setDate(start.getDate() - start.getDay());
+    const day = start.getDay(); // 0 = Sunday
+    const offset = weekStartsOn === 'sunday' ? day : (day + 6) % 7;
+    start.setDate(start.getDate() - offset);
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
     return { start, end };
@@ -64,7 +66,9 @@ function parseAnchorDate(value) {
 export async function getStats(req, res) {
   const period = PERIODS.includes(req.query.period) ? req.query.period : 'week';
   const anchor = parseAnchorDate(req.query.date);
-  const { start, end } = periodBounds(period, anchor);
+  const pref = await pool.query('SELECT week_starts_on FROM users WHERE id = $1', [req.userId]);
+  const weekStartsOn = pref.rows[0]?.week_starts_on === 'sunday' ? 'sunday' : 'monday';
+  const { start, end } = periodBounds(period, anchor, weekStartsOn);
 
   const result = await pool.query(
     `SELECT sport, actual_duration_seconds, details

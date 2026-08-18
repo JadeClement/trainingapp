@@ -7,13 +7,14 @@ export function toPublicUser(row) {
     displayName: row.display_name,
     createdAt: row.created_at,
     activeMode: row.active_mode,
+    weekStartsOn: row.week_starts_on ?? 'monday',
     hasCoachProfile: row.has_coach_profile ?? false,
   };
 }
 
 export async function loadPublicUser(userId) {
   const result = await pool.query(
-    `SELECT u.id, u.email, u.display_name, u.created_at, u.active_mode,
+    `SELECT u.id, u.email, u.display_name, u.created_at, u.active_mode, u.week_starts_on,
             EXISTS(SELECT 1 FROM coach_profiles cp WHERE cp.user_id = u.id) AS has_coach_profile
      FROM users u WHERE u.id = $1`,
     [userId]

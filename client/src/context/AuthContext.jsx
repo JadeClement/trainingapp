@@ -47,9 +47,14 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }, []);
 
+  const setWeekStart = useCallback(async (weekStartsOn) => {
+    const data = await api.setWeekStart(weekStartsOn);
+    setUser(data.user);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, signup, logout, createCoachProfile, setAccountMode }}
+      value={{ user, loading, login, signup, logout, createCoachProfile, setAccountMode, setWeekStart }}
     >
       {children}
     </AuthContext.Provider>

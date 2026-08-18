@@ -17,13 +17,18 @@ export function WeekLine({ days, workoutsByDate, onSelectDay }) {
     const bySport = new Map();
     for (const w of dayWorkouts) {
       const s = w.actualDurationSeconds ?? w.plannedDurationSeconds ?? 0;
-      bySport.set(w.sport, (bySport.get(w.sport) || 0) + s);
+      const bucket = bySport.get(w.sport) || { seconds: 0, allDone: true };
+      bucket.seconds += s;
+      bucket.allDone = bucket.allDone && w.isCompleted;
+      bySport.set(w.sport, bucket);
     }
     // flex-grow weight per segment — zero-duration workouts still get an
-    // even split rather than disappearing entirely.
-    const segments = [...bySport.entries()].map(([sport, sportSeconds]) => ({
+    // even split rather than disappearing entirely. Segments not yet done
+    // (planned/future) get a diagonal stripe instead of a solid fill.
+    const segments = [...bySport.entries()].map(([sport, bucket]) => ({
       color: sportMeta(sport).color,
-      weight: sportSeconds > 0 ? sportSeconds : 1,
+      weight: bucket.seconds > 0 ? bucket.seconds : 1,
+      pending: !bucket.allDone,
     }));
 
     return { key, seconds, segments };
@@ -46,7 +51,16 @@ export function WeekLine({ days, workoutsByDate, onSelectDay }) {
           >
             {l.segments.length > 0 ? (
               l.segments.map((seg, i) => (
-                <span key={i} className="week-line-segment" style={{ flex: seg.weight, background: seg.color }} />
+                <span
+                  key={i}
+                  className="week-line-segment"
+                  style={{
+                    flex: seg.weight,
+                    background: seg.pending
+                      ? `repeating-linear-gradient(45deg, ${seg.color}, ${seg.color} 4px, ${seg.color}55 4px, ${seg.color}55 8px)`
+                      : seg.color,
+                  }}
+                />
               ))
             ) : (
               <span className="week-line-segment" style={{ flex: 1, background: 'var(--border)' }} />

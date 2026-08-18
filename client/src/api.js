@@ -85,6 +85,8 @@ export const api = {
 
   createCoachProfile: () => request('/coach/profile', { method: 'POST' }),
   setAccountMode: (mode) => request('/coach/mode', { method: 'POST', body: JSON.stringify({ mode }) }),
+  setWeekStart: (weekStartsOn) =>
+    request('/auth/week-start', { method: 'POST', body: JSON.stringify({ weekStartsOn }) }),
 
   listCoachRelationships: () => request('/coach/relationships'),
   sendAthleteRequest: (email) =>

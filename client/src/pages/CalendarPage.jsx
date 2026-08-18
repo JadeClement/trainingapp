@@ -11,14 +11,18 @@ import {
   addDays,
   sportMeta,
   formatDurationSeconds,
+  weekdayLabels,
 } from '../dateUtils.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
-const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const AUTO_SYNC_THROTTLE_MS = 5 * 60 * 1000;
 const AUTO_SYNC_STORAGE_KEY = 'stravaLastAutoSync';
 
 export function CalendarPage({ athleteId }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const weekStartsOn = user?.weekStartsOn === 'sunday' ? 'sunday' : 'monday';
   const [viewMode, setViewMode] = useState('week');
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [workouts, setWorkouts] = useState([]);
@@ -28,8 +32,8 @@ export function CalendarPage({ athleteId }) {
   const newWorkoutParams = athleteId ? `&athleteId=${athleteId}` : '';
 
   const days = useMemo(
-    () => (viewMode === 'week' ? getWeekDays(anchorDate) : getMonthGridDays(anchorDate)),
-    [viewMode, anchorDate]
+    () => (viewMode === 'week' ? getWeekDays(anchorDate, weekStartsOn) : getMonthGridDays(anchorDate, weekStartsOn)),
+    [viewMode, anchorDate, weekStartsOn]
   );
 
   const rangeStart = days[0];
@@ -183,9 +187,12 @@ export function CalendarPage({ athleteId }) {
             const key = toISODate(day);
             const dayWorkouts = workoutsByDate[key] || [];
             return (
-              <div key={key} className={`week-day ${key === today ? 'is-today' : ''}`}>
+              <div
+                key={key}
+                className={`week-day ${key === today ? 'is-today' : ''} ${key < today ? 'is-past' : ''}`}
+              >
                 <div className="week-day-header">
-                  <span>{WEEKDAY_LABELS[day.getDay()]}</span>
+                  <span>{DAY_NAMES[day.getDay()]}</span>
                   <span className="week-day-date">{day.getDate()}</span>
                   <button
                     type="button"
@@ -209,7 +216,7 @@ export function CalendarPage({ athleteId }) {
       ) : (
         <div className="month-view">
           <div className="month-grid-header">
-            {WEEKDAY_LABELS.map((label) => (
+            {weekdayLabels(weekStartsOn).map((label) => (
               <div key={label}>{label}</div>
             ))}
           </div>

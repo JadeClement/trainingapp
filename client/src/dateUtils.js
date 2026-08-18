@@ -17,10 +17,18 @@ export function toISODate(date) {
   return local.toISOString().slice(0, 10);
 }
 
-export function startOfWeek(date) {
+const WEEKDAY_LABELS_SUNDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export function weekdayLabels(weekStartsOn = 'monday') {
+  if (weekStartsOn === 'sunday') return WEEKDAY_LABELS_SUNDAY;
+  return [...WEEKDAY_LABELS_SUNDAY.slice(1), WEEKDAY_LABELS_SUNDAY[0]];
+}
+
+export function startOfWeek(date, weekStartsOn = 'monday') {
   const d = new Date(date);
   const day = d.getDay(); // 0 = Sunday
-  d.setDate(d.getDate() - day);
+  const offset = weekStartsOn === 'sunday' ? day : (day + 6) % 7;
+  d.setDate(d.getDate() - offset);
   d.setHours(0, 0, 0, 0);
   return d;
 }
@@ -45,17 +53,17 @@ export function endOfMonth(date) {
   return d;
 }
 
-export function getWeekDays(anchorDate) {
-  const start = startOfWeek(anchorDate);
+export function getWeekDays(anchorDate, weekStartsOn = 'monday') {
+  const start = startOfWeek(anchorDate, weekStartsOn);
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
-// Returns a flat array of dates covering full weeks (Sun-Sat) that contain the month.
-export function getMonthGridDays(anchorDate) {
+// Returns a flat array of dates covering full weeks that contain the month.
+export function getMonthGridDays(anchorDate, weekStartsOn = 'monday') {
   const firstOfMonth = startOfMonth(anchorDate);
   const lastOfMonth = endOfMonth(anchorDate);
-  const gridStart = startOfWeek(firstOfMonth);
-  const gridEnd = addDays(startOfWeek(lastOfMonth), 6);
+  const gridStart = startOfWeek(firstOfMonth, weekStartsOn);
+  const gridEnd = addDays(startOfWeek(lastOfMonth, weekStartsOn), 6);
 
   const days = [];
   let cursor = gridStart;

@@ -113,3 +113,16 @@ export async function me(req, res) {
   }
   res.json({ user });
 }
+
+const WEEK_STARTS = ['sunday', 'monday'];
+
+// POST /api/auth/week-start — { weekStartsOn: 'sunday' | 'monday' }
+export async function setWeekStart(req, res) {
+  const { weekStartsOn } = req.body;
+  if (!WEEK_STARTS.includes(weekStartsOn)) {
+    return res.status(400).json({ error: "weekStartsOn must be 'sunday' or 'monday'" });
+  }
+
+  await pool.query('UPDATE users SET week_starts_on = $1 WHERE id = $2', [weekStartsOn, req.userId]);
+  res.json({ user: await loadPublicUser(req.userId) });
+}

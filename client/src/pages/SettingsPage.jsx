@@ -6,7 +6,7 @@ import { SPORTS, sportMeta } from '../dateUtils.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export function SettingsPage() {
-  const { user, createCoachProfile } = useAuth();
+  const { user, createCoachProfile, setWeekStart } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +21,7 @@ export function SettingsPage() {
   const [newSport, setNewSport] = useState('');
   const [newMaxHr, setNewMaxHr] = useState('');
   const [savingZone, setSavingZone] = useState(false);
+  const [savingWeekStart, setSavingWeekStart] = useState(false);
 
   const stravaParam = searchParams.get('strava');
 
@@ -79,6 +80,19 @@ export function SettingsPage() {
     }
   }
 
+  async function handleWeekStart(weekStartsOn) {
+    if ((weekStartsOn === 'sunday') === (user.weekStartsOn === 'sunday')) return;
+    setSavingWeekStart(true);
+    setError(null);
+    try {
+      await setWeekStart(weekStartsOn);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingWeekStart(false);
+    }
+  }
+
   const unconfiguredSports = SPORTS.filter((s) => !zones.some((z) => z.sport === s.value));
 
   function openAddZone() {
@@ -126,6 +140,29 @@ export function SettingsPage() {
         <p className="banner banner-error">Couldn't connect Strava. Please try again.</p>
       )}
       {error && <p className="form-error">{error}</p>}
+
+      <section className="settings-card">
+        <h2>Week starts on</h2>
+        <p className="settings-status">Used by the calendar and weekly stats.</p>
+        <div className="view-toggle">
+          <button
+            type="button"
+            className={user.weekStartsOn !== 'sunday' ? 'active' : ''}
+            onClick={() => handleWeekStart('monday')}
+            disabled={savingWeekStart}
+          >
+            Monday
+          </button>
+          <button
+            type="button"
+            className={user.weekStartsOn === 'sunday' ? 'active' : ''}
+            onClick={() => handleWeekStart('sunday')}
+            disabled={savingWeekStart}
+          >
+            Sunday
+          </button>
+        </div>
+      </section>
 
       <section className="settings-card">
         <h2>Coach profile</h2>
