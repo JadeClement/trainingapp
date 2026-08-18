@@ -571,25 +571,16 @@ button.danger {
 .workout-row-main.is-drag-source,
 .chip.is-drag-source {
   opacity: 0.35;
+  pointer-events: none;
   cursor: grabbing;
 }
 
-.drag-ghost {
+.chip.drag-ghost {
   position: fixed;
   z-index: 1000;
-  transform: translate(-50%, -50%) rotate(-2deg) scale(1.05);
   pointer-events: none;
-  background: var(--sport-color, var(--accent));
-  color: #fff;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
+  margin: 0;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
-  max-width: 220px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .week-day-header {
