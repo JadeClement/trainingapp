@@ -5,6 +5,7 @@ import {
   workoutDistanceMeters,
   formatDurationFraction,
   formatDistanceFraction,
+  formatDistanceMeters,
 } from '../dateUtils.js';
 
 function emptyBucket(sport) {
@@ -16,6 +17,7 @@ function emptyBucket(sport) {
     plannedDistance: 0,
     doneCount: 0,
     plannedCount: 0,
+    missingPlannedDistance: 0,
   };
 }
 
@@ -35,9 +37,20 @@ export function summarizeWeek(workouts) {
     bucket.doneDistance += done;
     bucket.plannedCount += 1;
     if (w.isCompleted) bucket.doneCount += 1;
+    if (!planned) bucket.missingPlannedDistance += 1;
   }
 
   return [...bySport.values()].filter((s) => s.plannedCount > 0);
+}
+
+function formatWeekDistance(row) {
+  // A 10km plan next to two runs with no distance would look like "0 / 10 km"
+  // for the whole week. Only show the planned denominator when every session
+  // of this sport has a distance (an explicit plan, or actual once completed).
+  if (row.missingPlannedDistance > 0) {
+    return formatDistanceMeters(row.sport, row.doneDistance);
+  }
+  return formatDistanceFraction(row.sport, row.doneDistance, row.plannedDistance);
 }
 
 export function WeekStats({ workouts }) {
@@ -77,7 +90,7 @@ export function WeekStats({ workouts }) {
                   </span>
                 </td>
                 <td>{formatDurationFraction(s.doneDuration, s.plannedDuration) || '—'}</td>
-                <td>{formatDistanceFraction(s.sport, s.doneDistance, s.plannedDistance) || '—'}</td>
+                <td>{formatWeekDistance(s) || '—'}</td>
                 <td>
                   {s.doneCount} / {s.plannedCount}
                 </td>
