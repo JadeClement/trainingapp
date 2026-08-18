@@ -265,6 +265,7 @@ export function CalendarPage({ athleteId }) {
                         <Link
                           key={w.id}
                           to={`/workouts/${w.id}/detail`}
+                          reloadDocument
                           className="chip"
                           style={{ backgroundColor: meta.color }}
                           title={w.title}
@@ -311,7 +312,7 @@ function WorkoutRow({ workout, onToggle }) {
   return (
     <div className={`workout-row ${workout.isCompleted ? 'is-completed' : ''}`}>
       <span className="sport-dot" style={{ backgroundColor: meta.color }} />
-      <Link to={`/workouts/${workout.id}/detail`} className="workout-row-main">
+      <Link to={`/workouts/${workout.id}/detail`} reloadDocument className="workout-row-main">
         <span className="workout-row-title">{workout.title}</span>
         <span className="workout-row-meta">
           {label}

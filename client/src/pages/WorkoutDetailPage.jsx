@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -59,23 +59,6 @@ export function WorkoutDetailPage() {
     load();
   }, [load]);
 
-  // If this tab opened on the detail page (refresh, new tab, or a replace),
-  // the browser greys out Back because there is nothing behind us. Insert
-  // the calendar under this entry so the real back button returns there.
-  // replaceState/pushState do not notify React Router, so the page does not
-  // flash; Back then fires popstate and the calendar route renders.
-  const seededHistory = useRef(false);
-  useLayoutEffect(() => {
-    if (seededHistory.current) return;
-    if (window.history.state?.idx > 0) return;
-    seededHistory.current = true;
-
-    const current = window.location.pathname + window.location.search + window.location.hash;
-    const state = window.history.state ?? {};
-    window.history.replaceState({ ...state, idx: 0 }, '', '/');
-    window.history.pushState({ ...state, idx: 1 }, '', current);
-  }, []);
-
   if (loading) return <p className="page-loading">Loading…</p>;
   if (error) return <p className="form-error">{error}</p>;
   if (!workout) return null;
@@ -85,18 +68,13 @@ export function WorkoutDetailPage() {
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;
 
-  function goBack() {
-    if (window.history.state?.idx > 0) navigate(-1);
-    else navigate('/');
-  }
-
   return (
     <div className="workout-detail-page">
       <div className="workout-detail-header">
         <div className="workout-detail-heading">
-          <button type="button" className="link-button workout-detail-back" onClick={goBack}>
+          <Link to="/" className="link-button workout-detail-back">
             ← Calendar
-          </button>
+          </Link>
           <h1>{workout.title}</h1>
           <p className="workout-authorship">
             created by{' '}
