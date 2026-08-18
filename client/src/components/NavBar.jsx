@@ -32,6 +32,9 @@ export function NavBar() {
           <NavLink to="/coach/athletes" className={({ isActive }) => (isActive ? 'active' : '')}>
             Athletes
           </NavLink>
+          <NavLink to="/stats" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Stats
+          </NavLink>
         </nav>
       )}
       <div className="navbar-actions">

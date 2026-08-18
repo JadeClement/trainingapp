@@ -1486,8 +1486,16 @@ button.danger {
 
 /* Stats page */
 
-.stats-toolbar-nav {
-  margin-bottom: 12px;
+.stats-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stats-toolbar .range-selector {
+  margin-bottom: 0;
 }
 
 .stats-sport-label {

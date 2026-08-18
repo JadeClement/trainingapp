@@ -13,12 +13,18 @@ import { FitnessPage } from './pages/FitnessPage.jsx';
 import { StatsPage } from './pages/StatsPage.jsx';
 import { FriendsPage } from './pages/FriendsPage.jsx';
 import { CoachHomePage } from './pages/CoachHomePage.jsx';
+import { CoachStatsPage } from './pages/CoachStatsPage.jsx';
 import { AthleteFinderPage } from './pages/AthleteFinderPage.jsx';
 import { CoachesPage } from './pages/CoachesPage.jsx';
 
 function HomeRoute() {
   const { user } = useAuth();
   return user?.activeMode === 'coach' ? <CoachHomePage /> : <CalendarPage />;
+}
+
+function StatsRoute() {
+  const { user } = useAuth();
+  return user?.activeMode === 'coach' ? <CoachStatsPage /> : <StatsPage />;
 }
 
 export default function App() {
@@ -73,7 +79,7 @@ export default function App() {
             path="/stats"
             element={
               <ProtectedRoute>
-                <StatsPage />
+                <StatsRoute />
               </ProtectedRoute>
             }
           />

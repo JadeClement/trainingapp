@@ -55,7 +55,10 @@ export const api = {
   stravaSync: () => request('/strava/sync', { method: 'POST' }),
   stravaDisconnect: () => request('/strava/disconnect', { method: 'DELETE' }),
 
-  getStats: (period, date) => request(`/stats?period=${period}${date ? `&date=${date}` : ''}`),
+  getStats: (period, date, athleteId) =>
+    request(
+      `/stats?period=${period}${date ? `&date=${date}` : ''}${athleteId ? `&athleteId=${athleteId}` : ''}`
+    ),
 
   listTrainingLoad: (start, end) => {
     const params = new URLSearchParams();

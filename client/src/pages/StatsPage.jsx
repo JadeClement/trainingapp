@@ -25,7 +25,7 @@ function shiftAnchor(date, period, direction) {
   return d;
 }
 
-export function StatsPage() {
+export function StatsPage({ athleteId }) {
   const [period, setPeriod] = useState('week');
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [stats, setStats] = useState(null);
@@ -37,7 +37,7 @@ export function StatsPage() {
     setLoading(true);
     setError(null);
     api
-      .getStats(period, toISODate(anchorDate))
+      .getStats(period, toISODate(anchorDate), athleteId)
       .then((data) => {
         if (!cancelled) setStats(data);
       })
@@ -50,35 +50,36 @@ export function StatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [period, anchorDate]);
+  }, [period, anchorDate, athleteId]);
 
   return (
     <div className="stats-page">
       <h1>Stats</h1>
 
-      <div className="calendar-toolbar-nav stats-toolbar-nav">
-        <button type="button" onClick={() => setAnchorDate((d) => shiftAnchor(d, period, -1))} aria-label="Previous">
-          ‹
-        </button>
-        <button type="button" onClick={() => setAnchorDate(new Date())}>
-          Today
-        </button>
-        <button type="button" onClick={() => setAnchorDate((d) => shiftAnchor(d, period, 1))} aria-label="Next">
-          ›
-        </button>
-      </div>
-
-      <div className="range-selector">
-        {PERIODS.map((p) => (
-          <button
-            type="button"
-            key={p.value}
-            className={period === p.value ? 'active' : ''}
-            onClick={() => setPeriod(p.value)}
-          >
-            {p.label}
+      <div className="stats-toolbar">
+        <div className="range-selector">
+          {PERIODS.map((p) => (
+            <button
+              type="button"
+              key={p.value}
+              className={period === p.value ? 'active' : ''}
+              onClick={() => setPeriod(p.value)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="calendar-toolbar-nav">
+          <button type="button" onClick={() => setAnchorDate((d) => shiftAnchor(d, period, -1))} aria-label="Previous">
+            ‹
           </button>
-        ))}
+          <button type="button" onClick={() => setAnchorDate(new Date())}>
+            Today
+          </button>
+          <button type="button" onClick={() => setAnchorDate((d) => shiftAnchor(d, period, 1))} aria-label="Next">
+            ›
+          </button>
+        </div>
       </div>
 
       {error && <p className="form-error">{error}</p>}

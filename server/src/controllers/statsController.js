@@ -71,7 +71,7 @@ export async function getStats(req, res) {
      FROM workouts
      WHERE user_id = $1 AND is_completed = true
        AND scheduled_date BETWEEN $2 AND $3`,
-    [req.userId, toDateString(start), toDateString(end)]
+    [req.targetUserId, toDateString(start), toDateString(end)]
   );
 
   const bySport = new Map(SPORTS.map((sport) => [sport, { sport, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 }]));
