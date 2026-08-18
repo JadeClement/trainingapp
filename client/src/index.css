@@ -560,9 +560,18 @@ button.danger {
   border-width: 2px;
 }
 
+.chip,
+.workout-row-main {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+}
+
 .workout-row-main.is-drag-source,
 .chip.is-drag-source {
   opacity: 0.35;
+  cursor: grabbing;
 }
 
 .drag-ghost {
@@ -645,7 +654,6 @@ button.danger {
   text-align: left;
   text-decoration: none;
   color: var(--text-h);
-  cursor: pointer;
 }
 
 .workout-row-title {
@@ -739,7 +747,6 @@ button.danger {
   gap: 2px;
   min-width: 0;
   text-decoration: none;
-  cursor: pointer;
 }
 
 .chip-title {
