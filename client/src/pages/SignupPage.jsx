@@ -21,6 +21,9 @@ export function SignupPage() {
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const showMatchHint = confirmPassword.length > 0;
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -95,6 +98,14 @@ export function SignupPage() {
             minLength={8}
             required
           />
+          {showMatchHint && (
+            <p
+              className={`password-match-hint ${passwordsMatch ? 'match' : 'mismatch'}`}
+              aria-live="polite"
+            >
+              {passwordsMatch ? '✓ Passwords match' : '× Do not match'}
+            </p>
+          )}
         </label>
         <div>
           <span className="label-like">I'm signing up as a</span>

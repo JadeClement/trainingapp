@@ -362,6 +362,19 @@ textarea {
   color: var(--text-h);
 }
 
+.password-match-hint {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.password-match-hint.mismatch {
+  color: var(--danger);
+}
+
+.password-match-hint.match {
+  color: var(--fresh);
+}
+
 .auth-form button[type='submit'] {
   margin-top: 8px;
   padding: 10px;
@@ -483,14 +496,21 @@ button.danger {
 .week-line-tick {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column-reverse;
   border: none;
   border-radius: 2px 2px 0 0;
   padding: 0;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .week-line-tick:hover {
   opacity: 0.8;
+}
+
+.week-line-segment {
+  width: 100%;
 }
 
 .week-day {
@@ -1462,6 +1482,32 @@ button.danger {
 .laps-table tbody tr:nth-child(even) td:last-child {
   border-top-right-radius: var(--radius);
   border-bottom-right-radius: var(--radius);
+}
+
+/* Stats page */
+
+.stats-toolbar-nav {
+  margin-bottom: 12px;
+}
+
+.stats-sport-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  color: var(--text-h);
+}
+
+.stats-sport-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stats-totals-row td {
+  font-weight: 600;
+  border-top: 1px solid var(--border);
 }
 
 .chart-axis {

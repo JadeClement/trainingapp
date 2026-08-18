@@ -10,6 +10,7 @@ import { WorkoutFormPage } from './pages/WorkoutFormPage.jsx';
 import { WorkoutDetailPage } from './pages/WorkoutDetailPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.jsx';
 import { FitnessPage } from './pages/FitnessPage.jsx';
+import { StatsPage } from './pages/StatsPage.jsx';
 import { FriendsPage } from './pages/FriendsPage.jsx';
 import { CoachHomePage } from './pages/CoachHomePage.jsx';
 import { AthleteFinderPage } from './pages/AthleteFinderPage.jsx';
@@ -65,6 +66,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <FitnessPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <ProtectedRoute>
+                <StatsPage />
               </ProtectedRoute>
             }
           />

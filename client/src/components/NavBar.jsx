@@ -16,6 +16,9 @@ export function NavBar() {
           <NavLink to="/fitness" className={({ isActive }) => (isActive ? 'active' : '')}>
             Fitness
           </NavLink>
+          <NavLink to="/stats" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Stats
+          </NavLink>
           <NavLink to="/friends" className={({ isActive }) => (isActive ? 'active' : '')}>
             Friends
           </NavLink>
