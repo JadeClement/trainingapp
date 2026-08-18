@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -58,6 +58,23 @@ export function WorkoutDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // If this tab opened on the detail page (refresh, new tab, or a replace),
+  // the browser greys out Back because there is nothing behind us. Insert
+  // the calendar under this entry so the real back button returns there.
+  // replaceState/pushState do not notify React Router, so the page does not
+  // flash; Back then fires popstate and the calendar route renders.
+  const seededHistory = useRef(false);
+  useLayoutEffect(() => {
+    if (seededHistory.current) return;
+    if (window.history.state?.idx > 0) return;
+    seededHistory.current = true;
+
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    const state = window.history.state ?? {};
+    window.history.replaceState({ ...state, idx: 0 }, '', '/');
+    window.history.pushState({ ...state, idx: 1 }, '', current);
+  }, []);
 
   if (loading) return <p className="page-loading">Loading…</p>;
   if (error) return <p className="form-error">{error}</p>;
