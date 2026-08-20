@@ -1325,6 +1325,7 @@ button.danger {
   border-radius: var(--radius);
   padding: 24px 20px;
   border: 1px solid var(--border);
+  margin-bottom: 20px;
 }
 
 .fitness-status-label {
@@ -1362,19 +1363,6 @@ button.danger {
   .fitness-status-card.state-fatigued {
     color: var(--fatigued);
   }
-}
-
-.fitness-status-card .link-button {
-  color: inherit;
-  text-decoration: underline;
-  font-weight: 600;
-}
-
-/* Fitness page — Tier 2 trend view */
-
-.trend-back {
-  display: inline-block;
-  margin-bottom: 12px;
 }
 
 .range-selector {

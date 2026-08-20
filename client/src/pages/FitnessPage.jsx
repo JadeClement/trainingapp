@@ -13,7 +13,6 @@ const RANGE_OPTIONS = [
 ];
 
 export function FitnessPage({ athleteId }) {
-  const [view, setView] = useState('status');
   const [rangeDays, setRangeDays] = useState(30);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,16 +38,10 @@ export function FitnessPage({ athleteId }) {
     <div className="fitness-page">
       {error && <p className="form-error">{error}</p>}
 
-      {view === 'status' && (
-        <StatusCard data={data} latest={latest} onSeeTrend={() => setView('trend')} />
-      )}
+      <StatusCard data={data} latest={latest} />
 
-      {view === 'trend' && (
+      {latest && (
         <div className="trend-view">
-          <button type="button" className="link-button trend-back" onClick={() => setView('status')}>
-            ← Back
-          </button>
-
           <div className="range-selector">
             {RANGE_OPTIONS.map((opt) => (
               <button
@@ -84,7 +77,7 @@ export function FitnessPage({ athleteId }) {
   );
 }
 
-function StatusCard({ data, latest, onSeeTrend }) {
+function StatusCard({ data, latest }) {
   if (!latest) {
     return (
       <p className="training-load-summary">
@@ -99,9 +92,6 @@ function StatusCard({ data, latest, onSeeTrend }) {
     <div className={`fitness-status-card state-${state.key}`}>
       <div className="fitness-status-label">{state.label}</div>
       <p className="training-load-summary">{summarizeTrainingLoad(data)}</p>
-      <button type="button" className="link-button" onClick={onSeeTrend}>
-        See trend →
-      </button>
     </div>
   );
 }
