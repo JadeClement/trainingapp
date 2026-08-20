@@ -1437,8 +1437,74 @@ button.danger {
 }
 
 .chart-plot {
+  position: relative;
   flex: 1;
   min-width: 0;
+}
+
+.fitness-trend-charts {
+  touch-action: pan-y;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fitness-chart-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--text-h);
+  min-height: 1.4em;
+  margin-bottom: 4px;
+}
+
+.fitness-chart-readout-date {
+  font-weight: 600;
+}
+
+.fitness-chart-readout-state {
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.fitness-chart-readout-state.state-fresh {
+  color: var(--fresh);
+}
+
+.fitness-chart-readout-state.state-building {
+  color: var(--building);
+}
+
+.fitness-chart-readout-state.state-fatigued {
+  color: var(--fatigued);
+}
+
+.fitness-chart-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--text-h);
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ctl-chart-dot {
+  fill: var(--accent);
+  stroke: var(--card-bg);
+  stroke-width: 2;
+}
+
+.tsb-bar.is-active {
+  stroke: var(--text-h);
+  stroke-width: 0.8;
+  paint-order: stroke fill;
 }
 
 .chart-y-grid {

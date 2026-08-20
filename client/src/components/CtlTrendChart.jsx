@@ -5,7 +5,7 @@ const WIDTH = 600;
 const HEIGHT = 160;
 const PADDING = 16;
 
-export function CtlTrendChart({ data }) {
+export function CtlTrendChart({ data, activeIndex = null }) {
   if (data.length === 0) return null;
 
   const values = data.map((d) => d.ctl);
@@ -40,7 +40,18 @@ export function CtlTrendChart({ data }) {
             ))}
             <path d={areaPath} className="ctl-chart-area" />
             <path d={linePath} className="ctl-chart-line" />
+            {activeIndex != null && data[activeIndex] && (
+              <circle
+                cx={xScale(activeIndex)}
+                cy={yScale(data[activeIndex].ctl)}
+                r="4.5"
+                className="ctl-chart-dot"
+              />
+            )}
           </svg>
+          {activeIndex != null && (
+            <span className="fitness-chart-cursor" style={{ left: `${xPct(activeIndex)}%` }} />
+          )}
         </div>
       </div>
       <DateAxis dates={data.map((d) => d.date)} xPct={xPct} />

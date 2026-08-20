@@ -7,7 +7,7 @@ const HEIGHT = 100;
 const PADDING_Y = 4;
 const PADDING_X = 16;
 
-export function TsbStrip({ data }) {
+export function TsbStrip({ data, activeIndex = null }) {
   if (data.length === 0) return null;
 
   const values = data.map((d) => d.tsb);
@@ -54,11 +54,14 @@ export function TsbStrip({ data }) {
                   y={y}
                   width={barWidth}
                   height={Math.max(barHeight, 1)}
-                  className={`tsb-bar tsb-bar-${key}`}
+                  className={`tsb-bar tsb-bar-${key}${i === activeIndex ? ' is-active' : ''}`}
                 />
               );
             })}
           </svg>
+          {activeIndex != null && (
+            <span className="fitness-chart-cursor" style={{ left: `${xPct(activeIndex)}%` }} />
+          )}
         </div>
       </div>
       <DateAxis dates={data.map((d) => d.date)} xPct={xPct} />
