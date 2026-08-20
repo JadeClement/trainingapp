@@ -1398,6 +1398,58 @@ button.danger {
 .ctl-chart,
 .tsb-strip {
   overflow: visible;
+  --chart-y-axis-width: 40px;
+}
+
+.chart-plot-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.chart-y-axis {
+  position: relative;
+  width: var(--chart-y-axis-width);
+  flex-shrink: 0;
+}
+
+.chart-y-tick {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(-50%);
+}
+
+.chart-y-label {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.chart-y-mark {
+  width: 5px;
+  height: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.chart-plot {
+  flex: 1;
+  min-width: 0;
+}
+
+.chart-y-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.ctl-chart .chart-axis,
+.tsb-strip .chart-axis {
+  margin-left: var(--chart-y-axis-width);
 }
 
 .ctl-chart svg {
@@ -1502,6 +1554,94 @@ button.danger {
   height: 110px;
   overflow: visible;
   display: block;
+}
+
+/* Workout detail — synced activity chart stack (one shared cursor/axis
+   across every metric lane, rather than one chart-per-metric) */
+
+.activity-chart-stack {
+  margin-bottom: 28px;
+}
+
+.activity-chart-readout {
+  height: 20px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-chart-readout-idle {
+  color: var(--text-muted);
+}
+
+.activity-chart-readout-live {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.activity-chart-lanes {
+  position: relative;
+  touch-action: pan-y;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.activity-chart-lane {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.activity-chart-lane:first-child {
+  border-top: none;
+}
+
+.activity-chart-lane .series-chart {
+  height: 64px;
+}
+
+.activity-chart-lane-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.activity-chart-lane-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.activity-chart-lane-readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.activity-chart-lap-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.activity-chart-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Workout detail — interval/laps table */

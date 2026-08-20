@@ -99,7 +99,7 @@ function pickTickIntervalSeconds(totalSeconds) {
   return (interval ?? TICK_INTERVAL_MINUTES[TICK_INTERVAL_MINUTES.length - 1]) * 60;
 }
 
-function nearestIndex(time, target) {
+export function nearestIndex(time, target) {
   let lo = 0;
   let hi = time.length - 1;
   while (lo < hi) {

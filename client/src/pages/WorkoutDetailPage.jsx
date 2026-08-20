@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { SeriesChart } from '../components/SeriesChart.jsx';
-import { HrZoneChart } from '../components/HrZoneChart.jsx';
-import { ChartSection } from '../components/ChartSection.jsx';
+import { ActivityChartStack } from '../components/ActivityChartStack.jsx';
 import { LapsTable } from '../components/LapsTable.jsx';
 import { MatchStravaControl, isMatchedPlan } from '../components/MatchStravaControl.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
@@ -187,7 +185,7 @@ export function WorkoutDetailPage() {
       )}
 
       {workout.source === 'strava_synced' && streams && (
-        <StreamCharts sport={workout.sport} streams={streams} maxHr={maxHr} />
+        <StreamCharts sport={workout.sport} streams={streams} maxHr={maxHr} laps={laps} />
       )}
 
       {workout.source === 'strava_synced' && laps && (
@@ -215,7 +213,7 @@ export function WorkoutDetailPage() {
   );
 }
 
-function StreamCharts({ sport, streams, maxHr }) {
+function StreamCharts({ sport, streams, maxHr, laps }) {
   const hasAnyStream = Object.keys(streams).length > 0;
   if (!hasAnyStream) {
     return <p className="empty-hint">No detailed data available for this workout.</p>;
@@ -233,110 +231,102 @@ function StreamCharts({ sport, streams, maxHr }) {
   const showPower = sport === 'bike' && Array.isArray(watts);
   const showCadence = !showPower && Array.isArray(cadence);
 
-  return (
-    <>
-      {showPace && <PaceSection sport={sport} velocity={velocity} moving={moving} time={time} />}
+  const lanes = [];
 
-      {Array.isArray(heartrate) && (
-        <HeartRateSection heartrate={heartrate} maxHr={maxHr} sport={sport} time={time} />
-      )}
-
-      {Array.isArray(altitude) && <ElevationSection altitude={altitude} time={time} />}
-
-      {showPower && (
-        <NumericSection title="Power" unit="w" values={watts} color="var(--first-light)" time={time} />
-      )}
-      {showCadence && (
-        <NumericSection title="Cadence" unit="rpm" values={cadence} color="var(--building)" time={time} />
-      )}
-    </>
-  );
-}
-
-function PaceSection({ sport, velocity, moving, time }) {
-  const values = paceOrSpeedSeries(sport, velocity, moving);
-  const { label, fasterIsLower } = paceOrSpeedUnit(sport);
-  const avg = average(values);
-  const headline = fasterIsLower ? minValue(values) : maxValue(values);
-  const headlineLabel = fasterIsLower ? 'Best' : 'Max';
-
-  return (
-    <ChartSection
-      title={label}
-      time={time}
-      stats={[
+  if (showPace) {
+    const values = paceOrSpeedSeries(sport, velocity, moving);
+    const { label, fasterIsLower } = paceOrSpeedUnit(sport);
+    const avg = average(values);
+    const headline = fasterIsLower ? minValue(values) : maxValue(values);
+    const headlineLabel = fasterIsLower ? 'Best' : 'Max';
+    lanes.push({
+      key: 'pace',
+      label,
+      values,
+      color: 'var(--accent)',
+      area: true,
+      invert: fasterIsLower,
+      restStats: [
         { label: 'Avg', value: formatPaceOrSpeed(sport, avg) },
         { label: headlineLabel, value: formatPaceOrSpeed(sport, headline) },
-      ]}
-    >
-      <SeriesChart values={values} color="var(--accent)" invert={fasterIsLower} area />
-    </ChartSection>
-  );
-}
+      ],
+      formatLive: (v) => formatPaceOrSpeed(sport, v),
+    });
+  }
 
-function HeartRateSection({ heartrate, maxHr, sport, time }) {
-  const avg = average(heartrate);
-  const max = maxValue(heartrate);
-  const label = sportMeta(sport).label.toLowerCase();
-
-  return (
-    <ChartSection
-      title="Heart rate"
-      time={time}
-      stats={[
+  if (Array.isArray(heartrate)) {
+    const avg = average(heartrate);
+    const max = maxValue(heartrate);
+    const label = sportMeta(sport).label.toLowerCase();
+    lanes.push({
+      key: 'hr',
+      label: 'Heart rate',
+      values: heartrate,
+      color: 'var(--building)',
+      maxHr,
+      restStats: [
         { label: 'Avg', value: avg ? `${Math.round(avg)} bpm` : '—' },
         { label: 'Max', value: max ? `${Math.round(max)} bpm` : '—' },
-      ]}
-      note={
-        !maxHr && (
-          <>
-            Set your max heart rate for {label} in <Link to="/settings">Settings</Link> to see zone
-            bands.
-          </>
-        )
-      }
-    >
-      {maxHr ? (
-        <HrZoneChart values={heartrate} maxHr={maxHr} />
-      ) : (
-        <SeriesChart values={heartrate} color="var(--building)" />
-      )}
-    </ChartSection>
-  );
-}
+      ],
+      formatLive: (v) => `${Math.round(v)} bpm`,
+      note: !maxHr && (
+        <>
+          Set your max heart rate for {label} in <Link to="/settings">Settings</Link> to see zone bands.
+        </>
+      ),
+    });
+  }
 
-function ElevationSection({ altitude, time }) {
-  const gain = elevationGain(altitude);
-  const max = maxValue(altitude);
-
-  return (
-    <ChartSection
-      title="Elevation"
-      time={time}
-      stats={[
+  if (Array.isArray(altitude)) {
+    const gain = elevationGain(altitude);
+    const max = maxValue(altitude);
+    lanes.push({
+      key: 'elevation',
+      label: 'Elevation',
+      values: altitude,
+      color: 'var(--fresh)',
+      area: true,
+      restStats: [
         { label: 'Gain', value: `${Math.round(gain)}m` },
         { label: 'Max', value: max !== null ? `${Math.round(max)}m` : '—' },
-      ]}
-    >
-      <SeriesChart values={altitude} color="var(--fresh)" area />
-    </ChartSection>
-  );
-}
+      ],
+      formatLive: (v) => `${Math.round(v)}m`,
+    });
+  }
 
-function NumericSection({ title, unit, values, color, time }) {
-  const avg = average(values);
-  const max = maxValue(values);
+  if (showPower) {
+    const avg = average(watts);
+    const max = maxValue(watts);
+    lanes.push({
+      key: 'power',
+      label: 'Power',
+      values: watts,
+      color: 'var(--first-light)',
+      restStats: [
+        { label: 'Avg', value: avg !== null ? `${Math.round(avg)}w` : '—' },
+        { label: 'Max', value: max !== null ? `${Math.round(max)}w` : '—' },
+      ],
+      formatLive: (v) => `${Math.round(v)}w`,
+    });
+  }
 
-  return (
-    <ChartSection
-      title={title}
-      time={time}
-      stats={[
-        { label: 'Avg', value: avg !== null ? `${Math.round(avg)}${unit}` : '—' },
-        { label: 'Max', value: max !== null ? `${Math.round(max)}${unit}` : '—' },
-      ]}
-    >
-      <SeriesChart values={values} color={color} />
-    </ChartSection>
-  );
+  if (showCadence) {
+    const avg = average(cadence);
+    const max = maxValue(cadence);
+    lanes.push({
+      key: 'cadence',
+      label: 'Cadence',
+      values: cadence,
+      color: 'var(--building)',
+      restStats: [
+        { label: 'Avg', value: avg !== null ? `${Math.round(avg)}rpm` : '—' },
+        { label: 'Max', value: max !== null ? `${Math.round(max)}rpm` : '—' },
+      ],
+      formatLive: (v) => `${Math.round(v)}rpm`,
+    });
+  }
+
+  if (lanes.length === 0) return null;
+
+  return <ActivityChartStack time={time} laps={laps} lanes={lanes} />;
 }
