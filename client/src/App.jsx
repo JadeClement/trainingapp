@@ -9,22 +9,19 @@ import { CalendarPage } from './pages/CalendarPage.jsx';
 import { WorkoutFormPage } from './pages/WorkoutFormPage.jsx';
 import { WorkoutDetailPage } from './pages/WorkoutDetailPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.jsx';
-import { FitnessPage } from './pages/FitnessPage.jsx';
-import { StatsPage } from './pages/StatsPage.jsx';
-import { FriendsPage } from './pages/FriendsPage.jsx';
+import { ProgressPage } from './pages/ProgressPage.jsx';
+import { PeoplePage } from './pages/PeoplePage.jsx';
 import { CoachHomePage } from './pages/CoachHomePage.jsx';
-import { CoachStatsPage } from './pages/CoachStatsPage.jsx';
-import { AthleteFinderPage } from './pages/AthleteFinderPage.jsx';
-import { CoachesPage } from './pages/CoachesPage.jsx';
+import { CoachProgressPage } from './pages/CoachProgressPage.jsx';
 
 function HomeRoute() {
   const { user } = useAuth();
   return user?.activeMode === 'coach' ? <CoachHomePage /> : <CalendarPage />;
 }
 
-function StatsRoute() {
+function ProgressRoute() {
   const { user } = useAuth();
-  return user?.activeMode === 'coach' ? <CoachStatsPage /> : <StatsPage />;
+  return user?.activeMode === 'coach' ? <CoachProgressPage /> : <ProgressPage />;
 }
 
 export default function App() {
@@ -68,18 +65,10 @@ export default function App() {
             }
           />
           <Route
-            path="/fitness"
+            path="/progress"
             element={
               <ProtectedRoute>
-                <FitnessPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/stats"
-            element={
-              <ProtectedRoute>
-                <StatsRoute />
+                <ProgressRoute />
               </ProtectedRoute>
             }
           />
@@ -92,26 +81,10 @@ export default function App() {
             }
           />
           <Route
-            path="/friends"
+            path="/people"
             element={
               <ProtectedRoute>
-                <FriendsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/coaches"
-            element={
-              <ProtectedRoute>
-                <CoachesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/coach/athletes"
-            element={
-              <ProtectedRoute>
-                <AthleteFinderPage />
+                <PeoplePage />
               </ProtectedRoute>
             }
           />

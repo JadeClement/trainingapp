@@ -11,29 +11,13 @@ export function NavBar() {
       <NavLink to="/" className="navbar-brand" end>
         Training Log
       </NavLink>
-      {user && !isCoach && (
+      {user && (
         <nav className="navbar-links">
-          <NavLink to="/fitness" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Fitness
+          <NavLink to="/progress" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Progress
           </NavLink>
-          <NavLink to="/stats" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Stats
-          </NavLink>
-          <NavLink to="/friends" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Friends
-          </NavLink>
-          <NavLink to="/coaches" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Coaches
-          </NavLink>
-        </nav>
-      )}
-      {user && isCoach && (
-        <nav className="navbar-links">
-          <NavLink to="/coach/athletes" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Athletes
-          </NavLink>
-          <NavLink to="/stats" className={({ isActive }) => (isActive ? 'active' : '')}>
-            Stats
+          <NavLink to="/people" className={({ isActive }) => (isActive ? 'active' : '')}>
+            People
           </NavLink>
         </nav>
       )}

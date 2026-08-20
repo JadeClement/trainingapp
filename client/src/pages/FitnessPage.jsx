@@ -12,7 +12,7 @@ const RANGE_OPTIONS = [
   { label: '3 Months', days: 90 },
 ];
 
-export function FitnessPage() {
+export function FitnessPage({ athleteId }) {
   const [view, setView] = useState('status');
   const [rangeDays, setRangeDays] = useState(30);
   const [data, setData] = useState([]);
@@ -22,12 +22,13 @@ export function FitnessPage() {
   useEffect(() => {
     const start = toISODate(addDays(new Date(), -FETCH_RANGE_DAYS));
     const end = toISODate(new Date());
+    setLoading(true);
     api
-      .listTrainingLoad(start, end)
+      .listTrainingLoad(start, end, athleteId)
       .then((res) => setData(res.trainingLoad))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [athleteId]);
 
   const latest = data[data.length - 1];
   const trendData = useMemo(() => data.slice(-rangeDays), [data, rangeDays]);
@@ -36,7 +37,6 @@ export function FitnessPage() {
 
   return (
     <div className="fitness-page">
-      <h1>Fitness</h1>
       {error && <p className="form-error">{error}</p>}
 
       {view === 'status' && (

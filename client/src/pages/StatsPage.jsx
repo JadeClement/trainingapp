@@ -54,8 +54,6 @@ export function StatsPage({ athleteId }) {
 
   return (
     <div className="stats-page">
-      <h1>Stats</h1>
-
       <div className="stats-toolbar">
         <div className="range-selector">
           {PERIODS.map((p) => (

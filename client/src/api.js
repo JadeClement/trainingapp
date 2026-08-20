@@ -66,10 +66,11 @@ export const api = {
       `/stats?period=${period}${date ? `&date=${date}` : ''}${athleteId ? `&athleteId=${athleteId}` : ''}`
     ),
 
-  listTrainingLoad: (start, end) => {
+  listTrainingLoad: (start, end, athleteId) => {
     const params = new URLSearchParams();
     if (start) params.set('start', start);
     if (end) params.set('end', end);
+    if (athleteId) params.set('athleteId', athleteId);
     const qs = params.toString();
     return request(`/training-load${qs ? `?${qs}` : ''}`);
   },

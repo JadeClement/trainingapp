@@ -1085,10 +1085,24 @@ button.danger {
   margin-bottom: 16px;
 }
 
-.settings-card h2 {
+.settings-card h2,
+.settings-card h3 {
   margin: 0 0 10px;
   font-size: 16px;
   color: var(--text-h);
+}
+
+.settings-group-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 24px 0 8px;
+}
+
+.settings-group-title:first-of-type {
+  margin-top: 4px;
 }
 
 .settings-status {

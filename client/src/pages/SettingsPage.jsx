@@ -141,8 +141,9 @@ export function SettingsPage() {
       )}
       {error && <p className="form-error">{error}</p>}
 
+      <h2 className="settings-group-title">Preferences</h2>
       <section className="settings-card">
-        <h2>Week starts on</h2>
+        <h3>Week starts on</h3>
         <p className="settings-status">Used by the calendar and weekly stats.</p>
         <div className="view-toggle">
           <button
@@ -164,36 +165,9 @@ export function SettingsPage() {
         </div>
       </section>
 
+      <h2 className="settings-group-title">Integrations</h2>
       <section className="settings-card">
-        <h2>Coach profile</h2>
-
-        {user.hasCoachProfile ? (
-          <p className="settings-status">
-            You have a coach profile. Use the Personal / Coach toggle in the header to switch between
-            your personal and coach account views.
-          </p>
-        ) : (
-          <>
-            <p className="settings-status">
-              Create a coach profile to unlock a separate coach account view you can toggle to from the
-              header.
-            </p>
-            <div className="settings-actions">
-              <button
-                type="button"
-                className="primary"
-                onClick={handleCreateCoachProfile}
-                disabled={creatingCoachProfile}
-              >
-                {creatingCoachProfile ? 'Creating…' : 'Create coach profile'}
-              </button>
-            </div>
-          </>
-        )}
-      </section>
-
-      <section className="settings-card">
-        <h2>Strava</h2>
+        <h3>Strava</h3>
 
         {status?.connected ? (
           <>
@@ -232,8 +206,9 @@ export function SettingsPage() {
         </p>
       </section>
 
+      <h2 className="settings-group-title">Training</h2>
       <section className="settings-card">
-        <h2>Heart rate zones</h2>
+        <h3>Heart rate zones</h3>
         <p className="settings-status">
           Set a max heart rate per sport to see zone-colored heart rate charts on synced workouts —
           your run and bike max HR usually aren't the same.
@@ -289,6 +264,35 @@ export function SettingsPage() {
               + Add sport
             </button>
           )
+        )}
+      </section>
+
+      <h2 className="settings-group-title">Coaching</h2>
+      <section className="settings-card">
+        <h3>Coach profile</h3>
+
+        {user.hasCoachProfile ? (
+          <p className="settings-status">
+            You have a coach profile. Use the Personal / Coach toggle in the header to switch between
+            your personal and coach account views.
+          </p>
+        ) : (
+          <>
+            <p className="settings-status">
+              Create a coach profile to unlock a separate coach account view you can toggle to from the
+              header.
+            </p>
+            <div className="settings-actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={handleCreateCoachProfile}
+                disabled={creatingCoachProfile}
+              >
+                {creatingCoachProfile ? 'Creating…' : 'Create coach profile'}
+              </button>
+            </div>
+          </>
         )}
       </section>
 

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { StatsPage } from './StatsPage.jsx';
 
 const LAST_ATHLETE_KEY = 'coachLastSelectedAthlete';
 
-export function CoachStatsPage() {
+// Shared "pick an athlete, then show their data" chrome for coach-mode pages
+// (dashboard, progress) — fetches the coach's athlete list, remembers the
+// last one picked, and hands the selected athlete id to whatever the page
+// wants to render for them.
+export function CoachAthleteScope({ emptyTitle, children }) {
   const [athletes, setAthletes] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,9 +38,9 @@ export function CoachStatsPage() {
   if (athletes.length === 0) {
     return (
       <div className="coach-page">
-        <h1>Stats</h1>
+        <h1>{emptyTitle}</h1>
         <p className="empty-hint">
-          No athletes yet. <Link to="/coach/athletes">Find an athlete</Link> to get started.
+          No athletes yet. <Link to="/people">Find an athlete</Link> to get started.
         </p>
       </div>
     );
@@ -58,7 +61,7 @@ export function CoachStatsPage() {
           ))}
         </select>
       </div>
-      {selectedId && <StatsPage athleteId={selectedId} key={selectedId} />}
+      {selectedId && children(selectedId)}
     </div>
   );
 }
