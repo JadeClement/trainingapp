@@ -6,7 +6,7 @@ import { SeriesChart } from '../components/SeriesChart.jsx';
 import { HrZoneChart } from '../components/HrZoneChart.jsx';
 import { ChartSection } from '../components/ChartSection.jsx';
 import { LapsTable } from '../components/LapsTable.jsx';
-import { MatchStravaControl } from '../components/MatchStravaControl.jsx';
+import { MatchStravaControl, isMatchedPlan } from '../components/MatchStravaControl.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { WorkoutComments } from '../components/WorkoutComments.jsx';
 import { sportMeta, formatDurationSeconds } from '../dateUtils.js';
@@ -84,6 +84,9 @@ export function WorkoutDetailPage() {
 
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;
+  const isOwner = user.id === workout.userId;
+  const matched = isMatchedPlan(workout);
+  const canMatch = isOwner && !matched;
 
   return (
     <div className="workout-detail-page">
@@ -107,12 +110,12 @@ export function WorkoutDetailPage() {
           <button type="button" onClick={() => navigate(`/workouts/${id}`)}>
             Edit
           </button>
-          {workout.source === 'manual' && !workout.isCompleted && !workout.stravaActivityId && !showMatch && (
+          {canMatch && !showMatch && (
             <button type="button" onClick={() => setShowMatch(true)}>
-              Match with Strava
+              {workout.stravaActivityId ? 'Match to plan' : 'Match with Strava'}
             </button>
           )}
-          {workout.stravaActivityId && (
+          {matched && (
             <button type="button" onClick={() => setConfirmingUnmatch(true)} disabled={unmatching}>
               {unmatching ? 'Unmatching…' : 'Unmatch'}
             </button>
@@ -134,9 +137,13 @@ export function WorkoutDetailPage() {
         <MatchStravaControl
           workoutId={id}
           onCancel={() => setShowMatch(false)}
-          onMatched={() => {
+          onMatched={(merged) => {
             setShowMatch(false);
-            load();
+            if (merged?.id && String(merged.id) !== String(id)) {
+              navigate(`/workouts/${merged.id}/detail`, { replace: true });
+            } else {
+              load();
+            }
           }}
         />
       )}

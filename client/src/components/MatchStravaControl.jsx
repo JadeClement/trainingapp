@@ -2,15 +2,30 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { formatDurationSeconds } from '../dateUtils.js';
 
+export function isMatchedPlan(workout) {
+  if (!workout?.stravaActivityId) return false;
+  if (workout.details?.fromPlan) return true;
+  return Boolean(
+    workout.plannedDurationSeconds ||
+      workout.notes ||
+      workout.details?.plannedDistance ||
+      (workout.createdBy && workout.userId && workout.createdBy !== workout.userId)
+  );
+}
+
 function candidateLabel(c) {
   const parts = [c.scheduledDate, c.title];
-  if (c.actualDurationSeconds) parts.push(formatDurationSeconds(c.actualDurationSeconds));
-  if (c.details?.distance) parts.push(c.details.distance);
+  const duration = c.actualDurationSeconds || c.plannedDurationSeconds;
+  if (duration) parts.push(formatDurationSeconds(duration));
+  if (c.details?.distance || c.details?.plannedDistance) {
+    parts.push(c.details.distance || c.details.plannedDistance);
+  }
   return parts.join(' · ');
 }
 
 export function MatchStravaControl({ workoutId, onMatched, onCancel }) {
   const [candidates, setCandidates] = useState(null);
+  const [matchKind, setMatchKind] = useState('activity');
   const [selectedId, setSelectedId] = useState('');
   const [error, setError] = useState(null);
   const [matching, setMatching] = useState(false);
@@ -21,6 +36,7 @@ export function MatchStravaControl({ workoutId, onMatched, onCancel }) {
       .listLinkCandidates(workoutId)
       .then((data) => {
         if (cancelled) return;
+        setMatchKind(data.matchKind || 'activity');
         setCandidates(data.candidates);
         setSelectedId(data.candidates[0]?.id || '');
       })
@@ -45,15 +61,18 @@ export function MatchStravaControl({ workoutId, onMatched, onCancel }) {
     }
   }
 
+  const emptyHint =
+    matchKind === 'plan'
+      ? 'No unmatched planned workouts nearby.'
+      : 'No unmatched Strava activities nearby.';
+
   return (
     <div className="match-strava-control">
       {error && <p className="form-error">{error}</p>}
 
       {candidates === null && !error && <p className="page-loading">Loading matches…</p>}
 
-      {candidates && candidates.length === 0 && (
-        <p className="empty-hint">No unmatched Strava activities nearby.</p>
-      )}
+      {candidates && candidates.length === 0 && <p className="empty-hint">{emptyHint}</p>}
 
       {candidates && candidates.length > 0 && (
         <div className="match-strava-row">

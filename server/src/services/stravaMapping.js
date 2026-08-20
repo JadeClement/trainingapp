@@ -57,5 +57,6 @@ export function detailsWithPreservedPlan(existing = {}, incoming = {}) {
     ...existing,
     ...incoming,
     ...(plannedDistance && !incoming.plannedDistance ? { plannedDistance } : {}),
+    fromPlan: true,
   };
 }

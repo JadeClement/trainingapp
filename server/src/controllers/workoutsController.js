@@ -215,7 +215,8 @@ export async function completeWorkout(req, res) {
     [actualDurationSeconds, mergedDetails, req.params.id]
   );
 
-  res.json({ workout: toPublicWorkout(result.rows[0]) });
+  const matched = await tryAutoMatchPlanned(result.rows[0]);
+  res.json({ workout: toPublicWorkout(matched || result.rows[0]) });
 }
 
 // GET /api/workouts/:id/streams — on-demand, cached after first fetch.
@@ -311,30 +312,59 @@ export async function getWorkoutLaps(req, res) {
 
 const LINK_CANDIDATE_WINDOW_DAYS = 14;
 
-// GET /api/workouts/:id/link-candidates — nearby synced activities a planned
-// workout could be manually merged into, for when auto-matching at sync
-// time missed it (dates too far apart, or more than one same-day/sport
-// planned workout existed). Athlete-only, same as the merge itself.
+// A plan that already absorbed a Strava activity (manual match, auto-match,
+// or the fromPlan flag written at merge). Standalone synced rows should not
+// count — those still need to be matchable onto a plan.
+function isMergedPlan(row) {
+  if (!row?.strava_activity_id) return false;
+  const details = row.details || {};
+  if (details.fromPlan) return true;
+  if (row.planned_duration_seconds) return true;
+  if (row.notes) return true;
+  if (details.plannedDistance) return true;
+  return Boolean(row.created_by && row.user_id && row.created_by !== row.user_id);
+}
+
+function nearbyDateClause(dateParam, daysParam) {
+  return `scheduled_date BETWEEN $${dateParam}::date - ($${daysParam} || ' days')::interval
+     AND $${dateParam}::date + ($${daysParam} || ' days')::interval`;
+}
+
+// GET /api/workouts/:id/link-candidates — the other side of a match, in
+// either direction: a plan (complete or not) lists nearby standalone Strava
+// activities, and a standalone Strava activity lists nearby unmatched plans.
+// Athlete-only, same as the merge itself.
 export async function listLinkCandidates(req, res) {
   const result = await pool.query('SELECT * FROM workouts WHERE id = $1', [req.params.id]);
-  const planned = result.rows[0];
-  if (!planned || planned.user_id !== req.userId) {
+  const current = result.rows[0];
+  if (!current || current.user_id !== req.userId) {
     return res.status(404).json({ error: 'Workout not found' });
   }
-  if (planned.source !== 'manual' || planned.is_completed || planned.strava_activity_id) {
-    return res.status(400).json({ error: 'This workout is not an unmatched planned workout' });
+  if (isMergedPlan(current)) {
+    return res.status(400).json({ error: 'This workout is already matched' });
   }
 
+  const lookingForPlan = Boolean(current.strava_activity_id);
   const candidates = await pool.query(
-    `SELECT * FROM workouts
-     WHERE user_id = $1 AND source = 'strava_synced' AND strava_activity_id IS NOT NULL
-       AND scheduled_date BETWEEN $2::date - ($3 || ' days')::interval AND $2::date + ($3 || ' days')::interval
-     ORDER BY ABS(scheduled_date - $2::date) ASC, scheduled_date DESC
-     LIMIT 20`,
-    [req.userId, planned.scheduled_date, LINK_CANDIDATE_WINDOW_DAYS]
+    lookingForPlan
+      ? `SELECT * FROM workouts
+         WHERE user_id = $1 AND strava_activity_id IS NULL
+           AND ${nearbyDateClause(2, 3)}
+         ORDER BY ABS(scheduled_date - $2::date) ASC, scheduled_date DESC
+         LIMIT 50`
+      : `SELECT * FROM workouts
+         WHERE user_id = $1 AND source = 'strava_synced' AND strava_activity_id IS NOT NULL
+           AND ${nearbyDateClause(2, 3)}
+         ORDER BY ABS(scheduled_date - $2::date) ASC, scheduled_date DESC
+         LIMIT 50`,
+    [req.userId, current.scheduled_date, LINK_CANDIDATE_WINDOW_DAYS]
   );
 
-  res.json({ candidates: candidates.rows.map(toPublicWorkout) });
+  const rows = lookingForPlan ? candidates.rows : candidates.rows.filter((row) => !isMergedPlan(row));
+  res.json({
+    matchKind: lookingForPlan ? 'plan' : 'activity',
+    candidates: rows.slice(0, 20).map(toPublicWorkout),
+  });
 }
 
 // Merges an unmatched synced activity into a planned workout: the planned
@@ -397,11 +427,7 @@ async function mergeWorkouts(planned, synced) {
 // exactly one same-day(-ish)/sport candidate; ambiguous cases are left for
 // the manual "Match with Strava" picker.
 async function tryAutoMatchPlanned(plannedWorkout) {
-  if (
-    plannedWorkout.source !== 'manual' ||
-    plannedWorkout.is_completed ||
-    plannedWorkout.strava_activity_id
-  ) {
+  if (plannedWorkout.strava_activity_id || isMergedPlan(plannedWorkout)) {
     return null;
   }
 
@@ -412,38 +438,48 @@ async function tryAutoMatchPlanned(plannedWorkout) {
     [plannedWorkout.user_id, plannedWorkout.sport, plannedWorkout.scheduled_date]
   );
 
-  if (candidates.rows.length !== 1) return null;
-  return mergeWorkouts(plannedWorkout, candidates.rows[0]);
+  const standalone = candidates.rows.filter((row) => !isMergedPlan(row));
+  if (standalone.length !== 1) return null;
+  return mergeWorkouts(plannedWorkout, standalone[0]);
 }
 
-// POST /api/workouts/:id/link-strava — manually merges a synced activity
-// (found via listLinkCandidates) into this planned workout, the fallback for
-// when automatic matching didn't catch it.
+function pairForMerge(a, b) {
+  if (!a.strava_activity_id && b.strava_activity_id && !isMergedPlan(b)) {
+    return { planned: a, synced: b };
+  }
+  if (!b.strava_activity_id && a.strava_activity_id && !isMergedPlan(a)) {
+    return { planned: b, synced: a };
+  }
+  return null;
+}
+
+// POST /api/workouts/:id/link-strava — merges a standalone Strava activity
+// into an unmatched plan (complete or not). Either side can be :id; the
+// other is syncedWorkoutId. The planned row always survives.
 export async function linkStravaActivity(req, res) {
   const { syncedWorkoutId } = req.body;
   if (!syncedWorkoutId) {
     return res.status(400).json({ error: 'syncedWorkoutId is required' });
   }
 
-  const plannedResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [req.params.id]);
-  const planned = plannedResult.rows[0];
-  if (!planned || planned.user_id !== req.userId) {
+  const currentResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [req.params.id]);
+  const current = currentResult.rows[0];
+  if (!current || current.user_id !== req.userId) {
     return res.status(404).json({ error: 'Workout not found' });
   }
-  if (planned.source !== 'manual' || planned.is_completed || planned.strava_activity_id) {
-    return res.status(400).json({ error: 'This workout is not an unmatched planned workout' });
+
+  const otherResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [syncedWorkoutId]);
+  const other = otherResult.rows[0];
+  if (!other || other.user_id !== req.userId) {
+    return res.status(404).json({ error: 'Workout not found' });
   }
 
-  const syncedResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [syncedWorkoutId]);
-  const synced = syncedResult.rows[0];
-  if (!synced || synced.user_id !== req.userId) {
-    return res.status(404).json({ error: 'Strava activity not found' });
-  }
-  if (synced.source !== 'strava_synced' || !synced.strava_activity_id) {
-    return res.status(400).json({ error: 'That workout is not a synced Strava activity' });
+  const pair = pairForMerge(current, other);
+  if (!pair) {
+    return res.status(400).json({ error: 'Match a planned workout with a standalone Strava activity' });
   }
 
-  const merged = await mergeWorkouts(planned, synced);
+  const merged = await mergeWorkouts(pair.planned, pair.synced);
   res.json({ workout: toPublicWorkout(merged) });
 }
 
@@ -463,12 +499,16 @@ export async function unmatchStravaActivity(req, res) {
   if (!current.strava_activity_id) {
     return res.status(400).json({ error: 'This workout has no Strava activity attached' });
   }
+  if (!isMergedPlan(current)) {
+    return res.status(400).json({ error: 'This workout is a Strava activity, not a matched plan' });
+  }
 
   const stravaActivityId = current.strava_activity_id;
   const actualDurationSeconds = current.actual_duration_seconds;
   const syncedDetails = { ...(current.details || {}) };
   const plannedDistance = syncedDetails.plannedDistance;
   delete syncedDetails.plannedDistance;
+  delete syncedDetails.fromPlan;
   const revertedDetails = plannedDistance ? { distance: plannedDistance } : {};
 
   const client = await pool.connect();
