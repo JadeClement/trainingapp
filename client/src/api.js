@@ -44,6 +44,7 @@ export const api = {
   listLinkCandidates: (id) => request(`/workouts/${id}/link-candidates`),
   linkStravaActivity: (id, syncedWorkoutId) =>
     request(`/workouts/${id}/link-strava`, { method: 'POST', body: JSON.stringify({ syncedWorkoutId }) }),
+  unmatchStravaActivity: (id) => request(`/workouts/${id}/unmatch`, { method: 'POST' }),
 
   listComments: (workoutId) => request(`/workouts/${workoutId}/comments`),
   addComment: (workoutId, body) =>

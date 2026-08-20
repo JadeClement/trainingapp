@@ -1700,6 +1700,42 @@ button.danger {
   }
 }
 
+.match-strava-control {
+  margin: 12px 0 20px;
+}
+
+.match-strava-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.match-strava-row select {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.match-strava-row button {
+  border-radius: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.match-strava-row button.primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+
 .workout-detail-summary {
   display: flex;
   justify-content: center;

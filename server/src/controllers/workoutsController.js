@@ -142,7 +142,8 @@ export async function createWorkout(req, res) {
     ]
   );
 
-  res.status(201).json({ workout: toPublicWorkout(result.rows[0]) });
+  const matched = await tryAutoMatchPlanned(result.rows[0]);
+  res.status(201).json({ workout: toPublicWorkout(matched || result.rows[0]) });
 }
 
 export async function updateWorkout(req, res) {
@@ -191,7 +192,8 @@ export async function updateWorkout(req, res) {
     ]
   );
 
-  res.json({ workout: toPublicWorkout(result.rows[0]) });
+  const matched = await tryAutoMatchPlanned(result.rows[0]);
+  res.json({ workout: toPublicWorkout(matched || result.rows[0]) });
 }
 
 // PATCH /api/workouts/:id/complete — quick action to log actual vs planned
@@ -335,36 +337,12 @@ export async function listLinkCandidates(req, res) {
   res.json({ candidates: candidates.rows.map(toPublicWorkout) });
 }
 
-// POST /api/workouts/:id/link-strava — manually merges a synced activity
-// (found via listLinkCandidates) into this planned workout, the fallback for
-// when the automatic same-day/sport matching at sync time didn't catch it.
-// Keeps the planned workout's title/notes/planned duration, and deletes the
-// now-redundant synced duplicate after moving its cached streams/laps/
-// comments over.
-export async function linkStravaActivity(req, res) {
-  const { syncedWorkoutId } = req.body;
-  if (!syncedWorkoutId) {
-    return res.status(400).json({ error: 'syncedWorkoutId is required' });
-  }
-
-  const plannedResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [req.params.id]);
-  const planned = plannedResult.rows[0];
-  if (!planned || planned.user_id !== req.userId) {
-    return res.status(404).json({ error: 'Workout not found' });
-  }
-  if (planned.source !== 'manual' || planned.is_completed || planned.strava_activity_id) {
-    return res.status(400).json({ error: 'This workout is not an unmatched planned workout' });
-  }
-
-  const syncedResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [syncedWorkoutId]);
-  const synced = syncedResult.rows[0];
-  if (!synced || synced.user_id !== req.userId) {
-    return res.status(404).json({ error: 'Strava activity not found' });
-  }
-  if (synced.source !== 'strava_synced' || !synced.strava_activity_id) {
-    return res.status(400).json({ error: 'That workout is not a synced Strava activity' });
-  }
-
+// Merges an unmatched synced activity into a planned workout: the planned
+// row survives (keeping its title/notes/planned duration) and absorbs the
+// synced row's actual data, streams, laps, and comments; the synced row is
+// deleted. Shared by the manual link-strava flow and auto-matching, since
+// both need the exact same merge semantics.
+async function mergeWorkouts(planned, synced) {
   const client = await pool.connect();
   let merged;
   try {
@@ -406,9 +384,147 @@ export async function linkStravaActivity(req, res) {
     client.release();
   }
 
+  await recomputeTrainingLoad(planned.user_id);
+  return merged;
+}
+
+// After a planned workout is created or its date/sport changes (including
+// via drag-to-reschedule), it may now line up with a Strava activity that
+// synced in earlier and was never matched — sync-time matching only checks
+// in the other direction (new activity → existing plan), so without this a
+// plan created or dropped onto the same day as an already-synced activity
+// would just sit there unmatched forever. Only auto-merges when there's
+// exactly one same-day(-ish)/sport candidate; ambiguous cases are left for
+// the manual "Match with Strava" picker.
+async function tryAutoMatchPlanned(plannedWorkout) {
+  if (
+    plannedWorkout.source !== 'manual' ||
+    plannedWorkout.is_completed ||
+    plannedWorkout.strava_activity_id
+  ) {
+    return null;
+  }
+
+  const candidates = await pool.query(
+    `SELECT * FROM workouts
+     WHERE user_id = $1 AND source = 'strava_synced' AND strava_activity_id IS NOT NULL
+       AND sport = $2 AND scheduled_date BETWEEN $3::date - INTERVAL '1 day' AND $3::date + INTERVAL '1 day'`,
+    [plannedWorkout.user_id, plannedWorkout.sport, plannedWorkout.scheduled_date]
+  );
+
+  if (candidates.rows.length !== 1) return null;
+  return mergeWorkouts(plannedWorkout, candidates.rows[0]);
+}
+
+// POST /api/workouts/:id/link-strava — manually merges a synced activity
+// (found via listLinkCandidates) into this planned workout, the fallback for
+// when automatic matching didn't catch it.
+export async function linkStravaActivity(req, res) {
+  const { syncedWorkoutId } = req.body;
+  if (!syncedWorkoutId) {
+    return res.status(400).json({ error: 'syncedWorkoutId is required' });
+  }
+
+  const plannedResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [req.params.id]);
+  const planned = plannedResult.rows[0];
+  if (!planned || planned.user_id !== req.userId) {
+    return res.status(404).json({ error: 'Workout not found' });
+  }
+  if (planned.source !== 'manual' || planned.is_completed || planned.strava_activity_id) {
+    return res.status(400).json({ error: 'This workout is not an unmatched planned workout' });
+  }
+
+  const syncedResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [syncedWorkoutId]);
+  const synced = syncedResult.rows[0];
+  if (!synced || synced.user_id !== req.userId) {
+    return res.status(404).json({ error: 'Strava activity not found' });
+  }
+  if (synced.source !== 'strava_synced' || !synced.strava_activity_id) {
+    return res.status(400).json({ error: 'That workout is not a synced Strava activity' });
+  }
+
+  const merged = await mergeWorkouts(planned, synced);
+  res.json({ workout: toPublicWorkout(merged) });
+}
+
+// POST /api/workouts/:id/unmatch — reverses a match (whether from
+// link-strava or the auto-match at sync time): splits the workout back into
+// the plain planned workout (title/notes/planned duration kept, restoring
+// the pre-match planned distance if one was preserved) and a new standalone
+// strava_synced workout carrying the actual activity data, streams, and
+// laps. The strava_activity_id must move off the planned row before the new
+// row can take it — both rows briefly holding the same id trips the unique
+// constraint otherwise.
+export async function unmatchStravaActivity(req, res) {
+  const { workout: current, canEdit } = await loadWorkoutAccess(req.userId, req.params.id);
+  if (!current || !canEdit) {
+    return res.status(404).json({ error: 'Workout not found' });
+  }
+  if (!current.strava_activity_id) {
+    return res.status(400).json({ error: 'This workout has no Strava activity attached' });
+  }
+
+  const stravaActivityId = current.strava_activity_id;
+  const actualDurationSeconds = current.actual_duration_seconds;
+  const syncedDetails = { ...(current.details || {}) };
+  const plannedDistance = syncedDetails.plannedDistance;
+  delete syncedDetails.plannedDistance;
+  const revertedDetails = plannedDistance ? { distance: plannedDistance } : {};
+
+  const client = await pool.connect();
+  let reverted;
+  try {
+    await client.query('BEGIN');
+
+    const revertResult = await client.query(
+      `UPDATE workouts SET
+         source = 'manual', strava_activity_id = NULL, is_completed = false,
+         actual_duration_seconds = NULL, details = $1, updated_at = now()
+       WHERE id = $2
+       RETURNING *`,
+      [revertedDetails, current.id]
+    );
+    reverted = revertResult.rows[0];
+
+    const syncedResult = await client.query(
+      `INSERT INTO workouts
+         (user_id, created_by, sport, title, scheduled_date, is_completed, visibility, source,
+          strava_activity_id, actual_duration_seconds, details)
+       VALUES ($1, $1, $2, $3, $4, true, $5, 'strava_synced', $6, $7, $8)
+       RETURNING id`,
+      [
+        current.user_id,
+        current.sport,
+        syncedDetails.activityType || `${current.sport.charAt(0).toUpperCase()}${current.sport.slice(1)}`,
+        current.scheduled_date,
+        current.visibility,
+        stravaActivityId,
+        actualDurationSeconds,
+        syncedDetails,
+      ]
+    );
+    const newSyncedId = syncedResult.rows[0].id;
+
+    await client.query('UPDATE workout_streams SET workout_id = $1 WHERE workout_id = $2', [
+      newSyncedId,
+      current.id,
+    ]);
+    await client.query('UPDATE workout_laps SET workout_id = $1 WHERE workout_id = $2', [
+      newSyncedId,
+      current.id,
+    ]);
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
   await recomputeTrainingLoad(req.userId);
 
-  res.json({ workout: toPublicWorkout(merged) });
+  res.json({ workout: toPublicWorkout(reverted) });
 }
 
 export async function deleteWorkout(req, res) {

@@ -6,7 +6,8 @@ import { SeriesChart } from '../components/SeriesChart.jsx';
 import { HrZoneChart } from '../components/HrZoneChart.jsx';
 import { ChartSection } from '../components/ChartSection.jsx';
 import { LapsTable } from '../components/LapsTable.jsx';
-import { LinkStravaDialog } from '../components/LinkStravaDialog.jsx';
+import { MatchStravaControl } from '../components/MatchStravaControl.jsx';
+import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { WorkoutComments } from '../components/WorkoutComments.jsx';
 import { sportMeta, formatDurationSeconds } from '../dateUtils.js';
 import {
@@ -30,7 +31,9 @@ export function WorkoutDetailPage() {
   const [hrZones, setHrZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showMatch, setShowMatch] = useState(false);
+  const [confirmingUnmatch, setConfirmingUnmatch] = useState(false);
+  const [unmatching, setUnmatching] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,6 +61,20 @@ export function WorkoutDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function handleUnmatch() {
+    setConfirmingUnmatch(false);
+    setUnmatching(true);
+    setError(null);
+    try {
+      await api.unmatchStravaActivity(id);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUnmatching(false);
+    }
+  }
 
   if (loading) return <p className="page-loading">Loading…</p>;
   if (error) return <p className="form-error">{error}</p>;
@@ -90,9 +107,14 @@ export function WorkoutDetailPage() {
           <button type="button" onClick={() => navigate(`/workouts/${id}`)}>
             Edit
           </button>
-          {workout.source === 'manual' && !workout.isCompleted && !workout.stravaActivityId && (
-            <button type="button" onClick={() => setShowLinkDialog(true)}>
-              Link to Strava activity
+          {workout.source === 'manual' && !workout.isCompleted && !workout.stravaActivityId && !showMatch && (
+            <button type="button" onClick={() => setShowMatch(true)}>
+              Match with Strava
+            </button>
+          )}
+          {workout.stravaActivityId && (
+            <button type="button" onClick={() => setConfirmingUnmatch(true)} disabled={unmatching}>
+              {unmatching ? 'Unmatching…' : 'Unmatch'}
             </button>
           )}
           {workout.stravaActivityId && (
@@ -107,6 +129,18 @@ export function WorkoutDetailPage() {
           )}
         </div>
       </div>
+
+      {showMatch && (
+        <MatchStravaControl
+          workoutId={id}
+          onCancel={() => setShowMatch(false)}
+          onMatched={() => {
+            setShowMatch(false);
+            load();
+          }}
+        />
+      )}
+
       {(workout.plannedDurationSeconds || workout.actualDurationSeconds || workout.details?.distance) && (
         <div className="workout-detail-summary">
           {workout.plannedDurationSeconds && (
@@ -153,14 +187,13 @@ export function WorkoutDetailPage() {
 
       <WorkoutComments workoutId={id} workoutOwnerId={workout.userId} />
 
-      {showLinkDialog && (
-        <LinkStravaDialog
-          workoutId={id}
-          onClose={() => setShowLinkDialog(false)}
-          onLinked={() => {
-            setShowLinkDialog(false);
-            load();
-          }}
+      {confirmingUnmatch && (
+        <ConfirmDialog
+          title="Unmatch this workout?"
+          message="This will separate the Strava activity back out as its own item on the calendar, and this workout will go back to being just a plan."
+          confirmLabel="Unmatch"
+          onConfirm={handleUnmatch}
+          onCancel={() => setConfirmingUnmatch(false)}
         />
       )}
     </div>
