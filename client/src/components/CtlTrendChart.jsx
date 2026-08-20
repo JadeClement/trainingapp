@@ -1,3 +1,5 @@
+import { DateAxis } from './DateAxis.jsx';
+
 const WIDTH = 600;
 const HEIGHT = 160;
 const PADDING = 16;
@@ -12,6 +14,7 @@ export function CtlTrendChart({ data }) {
 
   const xScale = (i) => PADDING + (i / (data.length - 1 || 1)) * (WIDTH - PADDING * 2);
   const yScale = (v) => HEIGHT - PADDING - ((v - min) / span) * (HEIGHT - PADDING * 2);
+  const xPct = (i) => (xScale(i) / WIDTH) * 100;
 
   const linePath = values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(v)}`).join(' ');
   const areaPath = `${linePath} L ${xScale(values.length - 1)} ${HEIGHT - PADDING} L ${xScale(0)} ${HEIGHT - PADDING} Z`;
@@ -22,6 +25,7 @@ export function CtlTrendChart({ data }) {
         <path d={areaPath} className="ctl-chart-area" />
         <path d={linePath} className="ctl-chart-line" />
       </svg>
+      <DateAxis dates={data.map((d) => d.date)} xPct={xPct} />
     </div>
   );
 }
