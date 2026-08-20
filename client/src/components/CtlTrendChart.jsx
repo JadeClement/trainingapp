@@ -21,7 +21,7 @@ export function CtlTrendChart({ data }) {
 
   return (
     <div className="ctl-chart">
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label="Fitness (CTL) trend">
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label="Chronic Training Load (CTL) trend">
         <path d={areaPath} className="ctl-chart-area" />
         <path d={linePath} className="ctl-chart-line" />
       </svg>

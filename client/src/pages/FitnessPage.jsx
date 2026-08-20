@@ -62,10 +62,10 @@ export function FitnessPage({ athleteId }) {
             ))}
           </div>
 
-          <h2 className="trend-section-title">Fitness (CTL)</h2>
+          <h2 className="trend-section-title">Chronic Training Load (CTL)</h2>
           <CtlTrendChart data={trendData} />
 
-          <h2 className="trend-section-title">Form (TSB)</h2>
+          <h2 className="trend-section-title">Training Stress Balance (TSB)</h2>
           <TsbStrip data={trendData} />
           <div className="tsb-strip-legend">
             <span>

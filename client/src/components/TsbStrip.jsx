@@ -22,7 +22,7 @@ export function TsbStrip({ data }) {
 
   return (
     <div className="tsb-strip">
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label="Form (TSB) by day">
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label="Training Stress Balance (TSB) by day">
         <line x1={PADDING_X} y1={zeroY} x2={WIDTH - PADDING_X} y2={zeroY} className="tsb-strip-zero" />
         {data.map((d, i) => {
           const { key } = classifyState(d.tsb);
