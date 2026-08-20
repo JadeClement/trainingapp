@@ -41,6 +41,11 @@ export const api = {
   deleteWorkout: (id) => request(`/workouts/${id}`, { method: 'DELETE' }),
   getWorkoutStreams: (id) => request(`/workouts/${id}/streams`),
   getWorkoutLaps: (id) => request(`/workouts/${id}/laps`),
+  mergeWorkoutLaps: (id, fromIndex, intoIndex) =>
+    request(`/workouts/${id}/laps`, {
+      method: 'PATCH',
+      body: JSON.stringify({ fromIndex, intoIndex }),
+    }),
   listLinkCandidates: (id) => request(`/workouts/${id}/link-candidates`),
   linkStravaActivity: (id, syncedWorkoutId) =>
     request(`/workouts/${id}/link-strava`, { method: 'POST', body: JSON.stringify({ syncedWorkoutId }) }),

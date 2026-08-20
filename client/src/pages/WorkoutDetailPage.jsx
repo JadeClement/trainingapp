@@ -190,7 +190,15 @@ export function WorkoutDetailPage() {
         <StreamCharts sport={workout.sport} streams={streams} maxHr={maxHr} />
       )}
 
-      {workout.source === 'strava_synced' && laps && <LapsTable sport={workout.sport} laps={laps} />}
+      {workout.source === 'strava_synced' && laps && (
+        <LapsTable
+          sport={workout.sport}
+          laps={laps}
+          workoutId={id}
+          canMerge={user.id === workout.userId || user.id === workout.createdBy}
+          onLapsChange={setLaps}
+        />
+      )}
 
       <WorkoutComments workoutId={id} workoutOwnerId={workout.userId} />
 

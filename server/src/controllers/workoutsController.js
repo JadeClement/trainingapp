@@ -1,6 +1,7 @@
 import pool from '../db/pool.js';
 import { getValidAccessToken, fetchStreams, fetchLaps } from '../services/stravaService.js';
 import { detailsWithPreservedPlan } from '../services/stravaMapping.js';
+import { mergeLapsByIndex } from '../services/lapMerge.js';
 import { isAcceptedCoach } from './coachController.js';
 import { recomputeTrainingLoad } from '../services/trainingLoad.js';
 
@@ -308,6 +309,29 @@ export async function getWorkoutLaps(req, res) {
 
   const laps = cached.rows[0].data.map(toPublicLap);
   res.json({ sport: workout.sport, laps });
+}
+
+// PATCH /api/workouts/:id/laps — merge one cached interval into another.
+// fromIndex is dragged onto intoIndex (both 1-based). The cached Strava
+// payload is rewritten so the next detail view shows combined stats.
+export async function mergeWorkoutLaps(req, res) {
+  const { workout, canEdit } = await loadWorkoutAccess(req.userId, req.params.id);
+  if (!workout || !canEdit) {
+    return res.status(404).json({ error: 'Workout not found' });
+  }
+
+  const cached = await pool.query('SELECT data FROM workout_laps WHERE workout_id = $1', [workout.id]);
+  if (cached.rows.length === 0) {
+    return res.status(400).json({ error: 'Open this workout once so intervals can load before merging' });
+  }
+
+  const next = mergeLapsByIndex(cached.rows[0].data, Number(req.body.fromIndex), Number(req.body.intoIndex));
+  await pool.query(
+    `UPDATE workout_laps SET data = $1, fetched_at = now() WHERE workout_id = $2`,
+    [JSON.stringify(next), workout.id]
+  );
+
+  res.json({ sport: workout.sport, laps: next.map(toPublicLap) });
 }
 
 const LINK_CANDIDATE_WINDOW_DAYS = 14;

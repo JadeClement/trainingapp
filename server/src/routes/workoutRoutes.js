@@ -8,6 +8,7 @@ import {
   deleteWorkout,
   getWorkoutStreams,
   getWorkoutLaps,
+  mergeWorkoutLaps,
   listLinkCandidates,
   linkStravaActivity,
   unmatchStravaActivity,
@@ -26,6 +27,7 @@ router.post('/', asyncHandler(resolveTargetUser), asyncHandler(createWorkout));
 router.get('/:id', asyncHandler(getWorkout));
 router.get('/:id/streams', asyncHandler(getWorkoutStreams));
 router.get('/:id/laps', asyncHandler(getWorkoutLaps));
+router.patch('/:id/laps', asyncHandler(mergeWorkoutLaps));
 router.get('/:id/link-candidates', asyncHandler(listLinkCandidates));
 router.post('/:id/link-strava', asyncHandler(linkStravaActivity));
 router.post('/:id/unmatch', asyncHandler(unmatchStravaActivity));
