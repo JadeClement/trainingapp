@@ -1629,7 +1629,44 @@ button.danger {
   margin-bottom: 28px;
 }
 
+.activity-chart-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 8px;
+}
+
+.activity-chart-heading .trend-section-title {
+  margin: 0;
+}
+
+.activity-chart-add {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.activity-chart-add:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.activity-chart-add:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .activity-chart-readout {
+  position: relative;
   height: 20px;
   margin-bottom: 6px;
   font-size: 13px;
@@ -1642,8 +1679,12 @@ button.danger {
 }
 
 .activity-chart-readout-live {
+  position: absolute;
+  top: 0;
   color: var(--text-h);
   font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .activity-chart-lanes {
@@ -1688,6 +1729,48 @@ button.danger {
   font-size: 13px;
   color: var(--text-h);
   white-space: nowrap;
+}
+
+.activity-chart-lane-plot {
+  position: relative;
+}
+
+.activity-chart-live-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--text-h);
+  border: 2px solid var(--card-bg);
+  box-sizing: content-box;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.activity-chart-live-value {
+  position: absolute;
+  z-index: 2;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--card-bg);
+  box-shadow: 0 0 0 1px var(--border);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-h);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.activity-chart-live-value.is-right {
+  transform: translate(8px, -50%);
+}
+
+.activity-chart-live-value.is-left {
+  transform: translate(calc(-100% - 8px), -50%);
 }
 
 .activity-chart-lap-divider {

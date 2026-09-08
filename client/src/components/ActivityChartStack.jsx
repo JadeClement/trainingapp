@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { SeriesChart } from './SeriesChart.jsx';
 import { HrZoneChart } from './HrZoneChart.jsx';
+import { PlusIcon } from './icons.jsx';
 import { timeAxisTicks, formatTickMinutes, nearestIndex } from '../streamUtils.js';
+import { laneValueYPct } from '../chartScale.js';
 
 function clamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
@@ -13,6 +15,10 @@ function formatElapsed(seconds) {
   const secs = Math.round(seconds % 60);
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
+
+// Keep in sync with server/src/services/lapSplit.js — a split this close to
+// an existing boundary is just noise, not a new interval.
+const MIN_SPLIT_GAP_SEC = 3;
 
 // Lap boundaries as cumulative elapsed time, each mapped to the nearest
 // sample index so they line up with the index-based x-scale every lane
@@ -27,29 +33,59 @@ function lapBoundaries(laps, time) {
   });
 }
 
+function intervalMarks(laps, time) {
+  const marks = [0];
+  let cumulative = 0;
+  if (laps && laps.length > 0) {
+    for (const lap of laps) {
+      cumulative += lap.elapsedSeconds ?? 0;
+      marks.push(cumulative);
+    }
+  }
+  const total = time?.[time.length - 1] ?? cumulative;
+  if (marks[marks.length - 1] < total) marks[marks.length - 1] = total;
+  if (marks.length === 1) marks.push(total);
+  return marks;
+}
+
+function canSplitAt(splitSeconds, marks) {
+  if (splitSeconds == null || !Number.isFinite(splitSeconds)) return false;
+  return marks.every((mark) => Math.abs(splitSeconds - mark) >= MIN_SPLIT_GAP_SEC);
+}
+
 // The workout detail page's signature element: every recorded metric
 // (pace, HR, elevation, power, cadence) stacked in lockstep on one shared
 // time axis. Dragging anywhere in the stack moves one cursor across every
 // lane at once (they're all sampled at the same indices, so one hovered
-// index drives all of them), and the stat readout above swaps from
-// resting avg/max to live values-at-cursor plus which interval you're in.
-export function ActivityChartStack({ time, laps, lanes }) {
-  const [hoverIndex, setHoverIndex] = useState(null);
+// index drives all of them). The line stays parked on release so you can
+// add an interval there; each lane keeps avg/max in its header, and the
+// value at the cursor rides the scrub line on that lane's trace.
+export function ActivityChartStack({ time, laps, lanes, canAddInterval = false, onAddInterval }) {
+  const [cursorIndex, setCursorIndex] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState(null);
   const containerRef = useRef(null);
   const pointerIdRef = useRef(null);
 
   const boundaries = useMemo(() => lapBoundaries(laps, time), [laps, time]);
+  const marks = useMemo(() => intervalMarks(laps, time), [laps, time]);
   const ticks = useMemo(() => timeAxisTicks(time), [time]);
   const lastIndex = (time?.length || 1) - 1;
 
   const currentLap = useMemo(() => {
-    if (hoverIndex === null || boundaries.length === 0) return null;
-    const hoverSec = time[hoverIndex];
-    return (
-      boundaries.find((b) => hoverSec >= b.startSec && hoverSec < b.endSec) ??
-      boundaries[boundaries.length - 1]
-    );
-  }, [hoverIndex, boundaries, time]);
+    if (cursorIndex === null || !laps?.length) return null;
+    const cursorSec = time[cursorIndex];
+    let cumulative = 0;
+    for (const lap of laps) {
+      const startSec = cumulative;
+      cumulative += lap.elapsedSeconds ?? 0;
+      if (cursorSec >= startSec && cursorSec < cumulative) return lap;
+    }
+    return laps[laps.length - 1];
+  }, [cursorIndex, laps, time]);
+
+  const cursorSeconds = cursorIndex !== null ? time[cursorIndex] : null;
+  const splitReady = canAddInterval && canSplitAt(cursorSeconds, marks);
 
   function indexFromClientX(clientX) {
     const rect = containerRef.current.getBoundingClientRect();
@@ -65,37 +101,83 @@ export function ActivityChartStack({ time, laps, lanes }) {
     } catch {
       // Capture can fail if the node isn't in the tree; move/up still fire.
     }
-    setHoverIndex(indexFromClientX(e.clientX));
+    setError(null);
+    setCursorIndex(indexFromClientX(e.clientX));
   }
 
   function handlePointerMove(e) {
     if (pointerIdRef.current === null) return;
-    setHoverIndex(indexFromClientX(e.clientX));
+    setCursorIndex(indexFromClientX(e.clientX));
   }
 
   function endDrag() {
     pointerIdRef.current = null;
-    setHoverIndex(null);
+  }
+
+  async function handleAddInterval() {
+    if (!splitReady || adding || !onAddInterval) return;
+    setAdding(true);
+    setError(null);
+    try {
+      await onAddInterval(cursorSeconds);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAdding(false);
+    }
   }
 
   const pct = (index) => (index / lastIndex) * 100;
+  const cursorPct = cursorIndex !== null ? pct(cursorIndex) : null;
+  const labelSide = cursorPct !== null && cursorPct >= 80 ? 'left' : 'right';
+  const timeShift =
+    cursorPct === null ? undefined : cursorPct < 8 ? 'none' : cursorPct > 92 ? 'translateX(-100%)' : 'translateX(-50%)';
+
+  const addTitle = !canAddInterval
+    ? undefined
+    : cursorIndex === null
+      ? 'Drag the charts to place a line'
+      : splitReady
+        ? 'Add an interval at this line'
+        : 'Move the line away from an existing interval';
 
   return (
     <section className="activity-chart-stack">
-      <h2 className="trend-section-title">Charts</h2>
+      <div className="activity-chart-heading">
+        <h2 className="trend-section-title">Charts</h2>
+        {canAddInterval && (
+          <button
+            type="button"
+            className="activity-chart-add"
+            onClick={handleAddInterval}
+            disabled={!splitReady || adding}
+            title={addTitle}
+            aria-label={addTitle}
+          >
+            <PlusIcon />
+          </button>
+        )}
+      </div>
+
+      {error && <p className="form-error">{error}</p>}
 
       <div className="activity-chart-readout">
-        {hoverIndex !== null ? (
-          <span className="activity-chart-readout-live">
-            {formatElapsed(time[hoverIndex])}
-            {currentLap && ` · Interval ${currentLap.lapIndex}`}
+        {cursorIndex !== null ? (
+          <span
+            className="activity-chart-readout-live"
+            style={{ left: `${cursorPct}%`, transform: timeShift }}
+          >
+            {formatElapsed(time[cursorIndex])}
+            {currentLap && ` · Interval ${currentLap.index}`}
           </span>
         ) : (
-          boundaries.length > 0 && (
-            <span className="activity-chart-readout-idle">
-              {boundaries.length} intervals — drag across the charts to explore
-            </span>
-          )
+          <span className="activity-chart-readout-idle">
+            {canAddInterval
+              ? 'Drag the charts to place a line, then tap + to add an interval'
+              : boundaries.length > 0
+                ? `${boundaries.length} intervals — drag across the charts to explore`
+                : ''}
+          </span>
         )}
       </div>
 
@@ -115,28 +197,44 @@ export function ActivityChartStack({ time, laps, lanes }) {
           />
         ))}
 
-        {hoverIndex !== null && (
-          <span className="activity-chart-cursor" style={{ left: `${pct(hoverIndex)}%` }} />
+        {cursorIndex !== null && (
+          <span className="activity-chart-cursor" style={{ left: `${cursorPct}%` }} />
         )}
 
         {lanes.map((lane) => {
-          const liveValue = hoverIndex !== null ? lane.values[hoverIndex] : null;
-          const readout =
-            liveValue !== null && liveValue !== undefined
-              ? lane.formatLive(liveValue)
-              : lane.restStats.map((s) => `${s.value} ${s.label}`).join(' · ');
+          const liveValue = cursorIndex !== null ? lane.values[cursorIndex] : null;
+          const hasLive =
+            liveValue !== null && liveValue !== undefined && !Number.isNaN(liveValue);
+          const yPct = hasLive ? laneValueYPct(lane, liveValue) : null;
+          const restReadout = lane.restStats.map((s) => `${s.value} ${s.label}`).join(' · ');
 
           return (
             <div key={lane.key} className="activity-chart-lane">
               <div className="activity-chart-lane-header">
                 <span className="activity-chart-lane-label">{lane.label}</span>
-                <span className="activity-chart-lane-readout">{readout}</span>
+                <span className="activity-chart-lane-readout">{restReadout}</span>
               </div>
-              {lane.maxHr ? (
-                <HrZoneChart values={lane.values} maxHr={lane.maxHr} />
-              ) : (
-                <SeriesChart values={lane.values} color={lane.color} area={lane.area} invert={lane.invert} />
-              )}
+              <div className="activity-chart-lane-plot">
+                {lane.maxHr ? (
+                  <HrZoneChart values={lane.values} maxHr={lane.maxHr} />
+                ) : (
+                  <SeriesChart values={lane.values} color={lane.color} area={lane.area} invert={lane.invert} />
+                )}
+                {hasLive && yPct !== null && (
+                  <>
+                    <span
+                      className="activity-chart-live-dot"
+                      style={{ left: `${cursorPct}%`, top: `${yPct}%` }}
+                    />
+                    <span
+                      className={`activity-chart-live-value is-${labelSide}`}
+                      style={{ left: `${cursorPct}%`, top: `${yPct}%` }}
+                    >
+                      {lane.formatLive(liveValue)}
+                    </span>
+                  </>
+                )}
+              </div>
               {lane.note && <p className="chart-note">{lane.note}</p>}
             </div>
           );

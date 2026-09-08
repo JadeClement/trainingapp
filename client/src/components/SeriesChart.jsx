@@ -1,6 +1,4 @@
-const WIDTH = 600;
-const HEIGHT = 130;
-const PADDING = 10;
+import { CHART_WIDTH as WIDTH, CHART_HEIGHT as HEIGHT, CHART_PADDING as PADDING } from '../chartScale.js';
 
 function clamp(v, min, max) {
   return Math.min(Math.max(v, min), max);

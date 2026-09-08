@@ -2,6 +2,7 @@ import pool from '../db/pool.js';
 import { getValidAccessToken, fetchStreams, fetchLaps } from '../services/stravaService.js';
 import { detailsWithPreservedPlan } from '../services/stravaMapping.js';
 import { mergeLapsByIndex } from '../services/lapMerge.js';
+import { splitLapsAtElapsed } from '../services/lapSplit.js';
 import { isAcceptedCoach } from './coachController.js';
 import { recomputeTrainingLoad } from '../services/trainingLoad.js';
 
@@ -278,6 +279,24 @@ function toPublicLap(lap, index) {
   };
 }
 
+async function ensureCachedLaps(workout) {
+  const cached = await pool.query('SELECT data FROM workout_laps WHERE workout_id = $1', [workout.id]);
+  if (cached.rows.length > 0) return cached.rows[0].data;
+
+  const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [workout.user_id]);
+  const accessToken = await getValidAccessToken(userResult.rows[0]);
+  const rawLaps = await fetchLaps(accessToken, workout.strava_activity_id);
+
+  await pool.query(
+    `INSERT INTO workout_laps (workout_id, data)
+     VALUES ($1, $2)
+     ON CONFLICT (workout_id) DO UPDATE SET data = EXCLUDED.data, fetched_at = now()`,
+    [workout.id, JSON.stringify(rawLaps)]
+  );
+
+  return rawLaps;
+}
+
 // GET /api/workouts/:id/laps — on-demand, cached after first fetch.
 export async function getWorkoutLaps(req, res) {
   const { workout, canView } = await loadWorkoutAccess(req.userId, req.params.id);
@@ -288,44 +307,45 @@ export async function getWorkoutLaps(req, res) {
     return res.status(400).json({ error: 'This workout has no Strava activity data' });
   }
 
-  let cached = await pool.query('SELECT data FROM workout_laps WHERE workout_id = $1', [workout.id]);
-
-  if (cached.rows.length === 0) {
-    // Laps belong to the athlete's Strava account, same as streams — fetch
-    // with the athlete's token even when a coach is viewing.
-    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [workout.user_id]);
-    const accessToken = await getValidAccessToken(userResult.rows[0]);
-    const rawLaps = await fetchLaps(accessToken, workout.strava_activity_id);
-
-    await pool.query(
-      `INSERT INTO workout_laps (workout_id, data)
-       VALUES ($1, $2)
-       ON CONFLICT (workout_id) DO UPDATE SET data = EXCLUDED.data, fetched_at = now()`,
-      [workout.id, JSON.stringify(rawLaps)]
-    );
-
-    cached = { rows: [{ data: rawLaps }] };
-  }
-
-  const laps = cached.rows[0].data.map(toPublicLap);
-  res.json({ sport: workout.sport, laps });
+  // Laps belong to the athlete's Strava account, same as streams — fetch
+  // with the athlete's token even when a coach is viewing.
+  const data = await ensureCachedLaps(workout);
+  res.json({ sport: workout.sport, laps: data.map(toPublicLap) });
 }
 
-// PATCH /api/workouts/:id/laps — merge one cached interval into another.
-// fromIndex is dragged onto intoIndex (both 1-based). The cached Strava
-// payload is rewritten so the next detail view shows combined stats.
+async function loadCachedStreams(workoutId) {
+  const result = await pool.query(
+    'SELECT stream_type, data FROM workout_streams WHERE workout_id = $1',
+    [workoutId]
+  );
+  const streams = {};
+  for (const row of result.rows) streams[row.stream_type] = row.data;
+  return streams;
+}
+
+// PATCH /api/workouts/:id/laps — rewrite the cached interval list. Either
+// merge one row onto another (fromIndex/intoIndex) or split the interval
+// under a chart cursor (splitAtSeconds, elapsed from activity start).
 export async function mergeWorkoutLaps(req, res) {
   const { workout, canEdit } = await loadWorkoutAccess(req.userId, req.params.id);
   if (!workout || !canEdit) {
     return res.status(404).json({ error: 'Workout not found' });
   }
 
-  const cached = await pool.query('SELECT data FROM workout_laps WHERE workout_id = $1', [workout.id]);
-  if (cached.rows.length === 0) {
-    return res.status(400).json({ error: 'Open this workout once so intervals can load before merging' });
+  if (!workout.strava_activity_id) {
+    return res.status(400).json({ error: 'This workout has no Strava activity data' });
   }
 
-  const next = mergeLapsByIndex(cached.rows[0].data, Number(req.body.fromIndex), Number(req.body.intoIndex));
+  const current = await ensureCachedLaps(workout);
+
+  let next;
+  if (req.body.splitAtSeconds != null) {
+    const streams = await loadCachedStreams(workout.id);
+    next = splitLapsAtElapsed(current, Number(req.body.splitAtSeconds), streams);
+  } else {
+    next = mergeLapsByIndex(current, Number(req.body.fromIndex), Number(req.body.intoIndex));
+  }
+
   await pool.query(
     `UPDATE workout_laps SET data = $1, fetched_at = now() WHERE workout_id = $2`,
     [JSON.stringify(next), workout.id]

@@ -24,3 +24,11 @@ export function EyeIcon(props) {
     </svg>
   );
 }
+
+export function PlusIcon(props) {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M8 3.25v9.5M3.25 8h9.5" strokeLinecap="round" />
+    </svg>
+  );
+}

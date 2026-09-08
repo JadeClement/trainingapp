@@ -74,6 +74,11 @@ export function WorkoutDetailPage() {
     }
   }
 
+  async function handleAddInterval(splitAtSeconds) {
+    const data = await api.splitWorkoutLap(id, splitAtSeconds);
+    setLaps(data.laps);
+  }
+
   if (loading) return <p className="page-loading">Loading…</p>;
   if (error) return <p className="form-error">{error}</p>;
   if (!workout) return null;
@@ -185,7 +190,14 @@ export function WorkoutDetailPage() {
       )}
 
       {workout.source === 'strava_synced' && streams && (
-        <StreamCharts sport={workout.sport} streams={streams} maxHr={maxHr} laps={laps} />
+        <StreamCharts
+          sport={workout.sport}
+          streams={streams}
+          maxHr={maxHr}
+          laps={laps}
+          canAddInterval={user.id === workout.userId || user.id === workout.createdBy}
+          onAddInterval={handleAddInterval}
+        />
       )}
 
       {workout.source === 'strava_synced' && laps && (
@@ -213,7 +225,7 @@ export function WorkoutDetailPage() {
   );
 }
 
-function StreamCharts({ sport, streams, maxHr, laps }) {
+function StreamCharts({ sport, streams, maxHr, laps, canAddInterval, onAddInterval }) {
   const hasAnyStream = Object.keys(streams).length > 0;
   if (!hasAnyStream) {
     return <p className="empty-hint">No detailed data available for this workout.</p>;
@@ -328,5 +340,13 @@ function StreamCharts({ sport, streams, maxHr, laps }) {
 
   if (lanes.length === 0) return null;
 
-  return <ActivityChartStack time={time} laps={laps} lanes={lanes} />;
+  return (
+    <ActivityChartStack
+      time={time}
+      laps={laps}
+      lanes={lanes}
+      canAddInterval={canAddInterval}
+      onAddInterval={onAddInterval}
+    />
+  );
 }

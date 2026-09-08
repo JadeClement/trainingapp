@@ -46,6 +46,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ fromIndex, intoIndex }),
     }),
+  splitWorkoutLap: (id, splitAtSeconds) =>
+    request(`/workouts/${id}/laps`, {
+      method: 'PATCH',
+      body: JSON.stringify({ splitAtSeconds }),
+    }),
   listLinkCandidates: (id) => request(`/workouts/${id}/link-candidates`),
   linkStravaActivity: (id, syncedWorkoutId) =>
     request(`/workouts/${id}/link-strava`, { method: 'POST', body: JSON.stringify({ syncedWorkoutId }) }),
