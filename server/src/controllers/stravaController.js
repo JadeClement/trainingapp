@@ -10,6 +10,7 @@ import {
 } from '../services/stravaService.js';
 import { mapStravaSportType, detailsWithPreservedPlan } from '../services/stravaMapping.js';
 import { estimateTss, recomputeTrainingLoad } from '../services/trainingLoad.js';
+import { clearRestOnDate } from './workoutsController.js';
 
 const STATE_COOKIE = 'strava_oauth_state';
 const DEFAULT_SYNC_LOOKBACK_DAYS = 90;
@@ -169,6 +170,7 @@ async function importActivities(userId, activities) {
             candidates.rows[0].id,
           ]
         );
+        await clearRestOnDate(userId, scheduledDate);
         continue;
       }
     }
@@ -194,6 +196,7 @@ async function importActivities(userId, activities) {
         details,
       ]
     );
+    await clearRestOnDate(userId, scheduledDate);
   }
 }
 
