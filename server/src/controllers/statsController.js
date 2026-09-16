@@ -1,7 +1,10 @@
 import pool from '../db/pool.js';
 
 const SPORTS = ['swim', 'bike', 'run', 'strength', 'other'];
-const PERIODS = ['week', 'month', 'year'];
+const PERIODS = ['week', 'month', 'year', 'custom'];
+const MIN_CUSTOM_DAYS = 1;
+const MAX_CUSTOM_DAYS = 365;
+const DEFAULT_CUSTOM_DAYS = 14;
 
 // details.distance is a free-text label ("85.0km", "1500m", ...) written by
 // either the Strava sync or a user typing into the manual distance field —
@@ -27,11 +30,25 @@ function toDateString(d) {
   return d.toISOString().slice(0, 10);
 }
 
+function parseCustomDays(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_CUSTOM_DAYS;
+  return Math.min(MAX_CUSTOM_DAYS, Math.max(MIN_CUSTOM_DAYS, Math.round(n)));
+}
+
 // Matches the viewer's week-start preference (see client dateUtils.js
 // startOfWeek) so this page's "week" lines up with the calendar's. `anchor`
 // is whatever date the caller is currently looking at — defaults to today,
-// but paging back/forward moves it to an earlier/later week, month, or year.
-function periodBounds(period, anchor, weekStartsOn = 'monday') {
+// but paging back/forward moves it to an earlier/later week, month, year,
+// or custom window.
+function periodBounds(period, anchor, weekStartsOn = 'monday', days = DEFAULT_CUSTOM_DAYS) {
+  if (period === 'custom') {
+    const end = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+    const start = new Date(end);
+    start.setDate(start.getDate() - (days - 1));
+    return { start, end };
+  }
+
   if (period === 'week') {
     const start = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
     const day = start.getDay(); // 0 = Sunday
@@ -60,15 +77,17 @@ function parseAnchorDate(value) {
   return new Date();
 }
 
-// GET /api/stats?period=week|month|year&date=YYYY-MM-DD — per-sport totals
-// for the week/month/year containing `date` (defaults to today), based on
-// completed workouts only (what was actually done, not what's planned).
+// GET /api/stats?period=week|month|year|custom&date=YYYY-MM-DD[&days=]
+// Per-sport totals for the week/month/year containing `date`, or the
+// trailing `days` ending on `date` when period=custom. Completed workouts
+// only (what was actually done, not what's planned).
 export async function getStats(req, res) {
   const period = PERIODS.includes(req.query.period) ? req.query.period : 'week';
+  const days = parseCustomDays(req.query.days);
   const anchor = parseAnchorDate(req.query.date);
   const pref = await pool.query('SELECT week_starts_on FROM users WHERE id = $1', [req.userId]);
   const weekStartsOn = pref.rows[0]?.week_starts_on === 'sunday' ? 'sunday' : 'monday';
-  const { start, end } = periodBounds(period, anchor, weekStartsOn);
+  const { start, end } = periodBounds(period, anchor, weekStartsOn, days);
 
   const result = await pool.query(
     `SELECT sport, actual_duration_seconds, details
@@ -108,5 +127,5 @@ export async function getStats(req, res) {
     { durationSeconds: 0, workoutCount: 0 }
   );
 
-  res.json({ period, start: toDateString(start), end: toDateString(end), sports, totals });
+  res.json({ period, days: period === 'custom' ? days : undefined, start: toDateString(start), end: toDateString(end), sports, totals });
 }

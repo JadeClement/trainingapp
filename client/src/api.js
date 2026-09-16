@@ -66,10 +66,14 @@ export const api = {
   stravaSync: () => request('/strava/sync', { method: 'POST' }),
   stravaDisconnect: () => request('/strava/disconnect', { method: 'DELETE' }),
 
-  getStats: (period, date, athleteId) =>
-    request(
-      `/stats?period=${period}${date ? `&date=${date}` : ''}${athleteId ? `&athleteId=${athleteId}` : ''}`
-    ),
+  getStats: (period, date, athleteId, days) => {
+    const params = new URLSearchParams();
+    params.set('period', period);
+    if (date) params.set('date', date);
+    if (athleteId) params.set('athleteId', athleteId);
+    if (period === 'custom' && days) params.set('days', String(days));
+    return request(`/stats?${params}`);
+  },
 
   listTrainingLoad: (start, end, athleteId) => {
     const params = new URLSearchParams();

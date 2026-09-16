@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { sportMeta, formatDurationSeconds, toISODate } from '../dateUtils.js';
 
@@ -6,20 +6,34 @@ const PERIODS = [
   { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'year', label: 'Year' },
+  { value: 'custom', label: 'Custom' },
 ];
 
-function formatRangeLabel(period, start, end) {
+const MIN_CUSTOM_DAYS = 1;
+const MAX_CUSTOM_DAYS = 365;
+const DEFAULT_CUSTOM_DAYS = 14;
+
+function clampDays(value) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return DEFAULT_CUSTOM_DAYS;
+  return Math.min(MAX_CUSTOM_DAYS, Math.max(MIN_CUSTOM_DAYS, n));
+}
+
+function formatRangeLabel(period, start, end, days) {
   const startDate = new Date(`${start}T00:00:00`);
   const endDate = new Date(`${end}T00:00:00`);
   if (period === 'year') return String(startDate.getFullYear());
   if (period === 'month') return startDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const opts = { month: 'short', day: 'numeric' };
-  return `${startDate.toLocaleDateString(undefined, opts)} – ${endDate.toLocaleDateString(undefined, opts)}`;
+  const range = `${startDate.toLocaleDateString(undefined, opts)} – ${endDate.toLocaleDateString(undefined, opts)}`;
+  if (period === 'custom' && days) return `${days} days · ${range}`;
+  return range;
 }
 
-function shiftAnchor(date, period, direction) {
+function shiftAnchor(date, period, direction, days) {
   const d = new Date(date);
-  if (period === 'week') d.setDate(d.getDate() + direction * 7);
+  if (period === 'custom') d.setDate(d.getDate() + direction * days);
+  else if (period === 'week') d.setDate(d.getDate() + direction * 7);
   else if (period === 'year') d.setFullYear(d.getFullYear() + direction);
   else d.setMonth(d.getMonth() + direction);
   return d;
@@ -27,17 +41,20 @@ function shiftAnchor(date, period, direction) {
 
 export function StatsPage({ athleteId }) {
   const [period, setPeriod] = useState('week');
+  const [customDays, setCustomDays] = useState(DEFAULT_CUSTOM_DAYS);
+  const [daysDraft, setDaysDraft] = useState(String(DEFAULT_CUSTOM_DAYS));
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const daysInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     api
-      .getStats(period, toISODate(anchorDate), athleteId)
+      .getStats(period, toISODate(anchorDate), athleteId, period === 'custom' ? customDays : undefined)
       .then((data) => {
         if (!cancelled) setStats(data);
       })
@@ -50,31 +67,76 @@ export function StatsPage({ athleteId }) {
     return () => {
       cancelled = true;
     };
-  }, [period, anchorDate, athleteId]);
+  }, [period, anchorDate, athleteId, customDays]);
+
+  useEffect(() => {
+    if (period === 'custom') daysInputRef.current?.focus();
+  }, [period]);
+
+  function commitCustomDays() {
+    const next = clampDays(daysDraft);
+    setDaysDraft(String(next));
+    setCustomDays(next);
+  }
 
   return (
     <div className="stats-page">
       <div className="stats-toolbar">
-        <div className="range-selector">
-          {PERIODS.map((p) => (
-            <button
-              type="button"
-              key={p.value}
-              className={period === p.value ? 'active' : ''}
-              onClick={() => setPeriod(p.value)}
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="stats-period-controls">
+          <div className="range-selector">
+            {PERIODS.map((p) => (
+              <button
+                type="button"
+                key={p.value}
+                className={period === p.value ? 'active' : ''}
+                onClick={() => {
+                  setPeriod(p.value);
+                  if (p.value === 'custom') setDaysDraft(String(customDays));
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {period === 'custom' && (
+            <label className="stats-custom-days">
+              <input
+                ref={daysInputRef}
+                type="number"
+                min={MIN_CUSTOM_DAYS}
+                max={MAX_CUSTOM_DAYS}
+                inputMode="numeric"
+                value={daysDraft}
+                onChange={(e) => setDaysDraft(e.target.value)}
+                onBlur={commitCustomDays}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                aria-label="Number of days"
+              />
+              days
+            </label>
+          )}
         </div>
         <div className="calendar-toolbar-nav">
-          <button type="button" onClick={() => setAnchorDate((d) => shiftAnchor(d, period, -1))} aria-label="Previous">
+          <button
+            type="button"
+            onClick={() => setAnchorDate((d) => shiftAnchor(d, period, -1, customDays))}
+            aria-label="Previous"
+          >
             ‹
           </button>
           <button type="button" onClick={() => setAnchorDate(new Date())}>
             Today
           </button>
-          <button type="button" onClick={() => setAnchorDate((d) => shiftAnchor(d, period, 1))} aria-label="Next">
+          <button
+            type="button"
+            onClick={() => setAnchorDate((d) => shiftAnchor(d, period, 1, customDays))}
+            aria-label="Next"
+          >
             ›
           </button>
         </div>
@@ -85,7 +147,9 @@ export function StatsPage({ athleteId }) {
 
       {!loading && stats && (
         <section className="settings-card">
-          <h2 className="trend-section-title">{formatRangeLabel(stats.period, stats.start, stats.end)}</h2>
+          <h2 className="trend-section-title">
+            {formatRangeLabel(stats.period, stats.start, stats.end, stats.days)}
+          </h2>
 
           {stats.sports.length === 0 ? (
             <p className="empty-hint">No completed workouts in this period.</p>

@@ -1885,13 +1885,41 @@ button.danger {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
-  max-width: 480px;
+  max-width: 520px;
   margin-bottom: 16px;
 }
 
 .stats-toolbar .range-selector {
   margin-bottom: 0;
+}
+
+.stats-period-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stats-custom-days {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stats-custom-days input {
+  width: 4.25em;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-h);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
 }
 
 .stats-sport-label {
