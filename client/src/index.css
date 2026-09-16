@@ -1906,6 +1906,11 @@ button.danger {
   white-space: nowrap;
 }
 
+.laps-table th:first-child,
+.laps-table td:first-child {
+  padding-left: 8px;
+}
+
 .laps-table th {
   font-size: 11px;
   text-transform: uppercase;
@@ -2054,7 +2059,18 @@ button.danger {
 }
 
 .laps-table tbody tr.is-selected td:first-child {
-  box-shadow: inset 3px 0 0 var(--sport-color, var(--accent));
+  position: relative;
+}
+
+.laps-table tbody tr.is-selected td:first-child::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--sport-color, var(--accent));
 }
 
 .mileage-chart {
