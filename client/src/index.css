@@ -1922,6 +1922,39 @@ button.danger {
   font-size: 13px;
 }
 
+.stats-range-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.stats-range-date {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  border-bottom: 1px dashed color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.stats-range-date:hover,
+.stats-range-date:focus-within {
+  color: var(--text-h);
+  border-bottom-color: var(--text-h);
+}
+
+.stats-range-date input[type='date'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font-size: inherit;
+}
+
 .stats-sport-label {
   display: inline-flex;
   align-items: center;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { sportMeta, formatDurationSeconds, toISODate } from '../dateUtils.js';
+import { sportMeta, formatDurationSeconds, toISODate, addDays } from '../dateUtils.js';
 
 const PERIODS = [
   { value: 'week', label: 'Week' },
@@ -19,15 +19,52 @@ function clampDays(value) {
   return Math.min(MAX_CUSTOM_DAYS, Math.max(MIN_CUSTOM_DAYS, n));
 }
 
-function formatRangeLabel(period, start, end, days) {
-  const startDate = new Date(`${start}T00:00:00`);
-  const endDate = new Date(`${end}T00:00:00`);
+function parseDay(iso) {
+  return new Date(`${iso}T00:00:00`);
+}
+
+function formatDayLabel(iso) {
+  return parseDay(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function inclusiveDayCount(startIso, endIso) {
+  return Math.round((parseDay(endIso) - parseDay(startIso)) / 86400000) + 1;
+}
+
+function formatRangeLabel(period, start, end) {
+  const startDate = parseDay(start);
+  const endDate = parseDay(end);
   if (period === 'year') return String(startDate.getFullYear());
   if (period === 'month') return startDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const opts = { month: 'short', day: 'numeric' };
-  const range = `${startDate.toLocaleDateString(undefined, opts)} – ${endDate.toLocaleDateString(undefined, opts)}`;
-  if (period === 'custom' && days) return `${days} days · ${range}`;
-  return range;
+  return `${startDate.toLocaleDateString(undefined, opts)} – ${endDate.toLocaleDateString(undefined, opts)}`;
+}
+
+function StatsRangeDate({ value, ariaLabel, onChange }) {
+  const inputRef = useRef(null);
+
+  function openPicker(e) {
+    const input = inputRef.current;
+    if (!input || e.target === input) return;
+    try {
+      input.showPicker();
+    } catch {
+      input.focus();
+    }
+  }
+
+  return (
+    <label className="stats-range-date" onClick={openPicker}>
+      <span>{formatDayLabel(value)}</span>
+      <input
+        ref={inputRef}
+        type="date"
+        value={value}
+        aria-label={ariaLabel}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
 }
 
 function shiftAnchor(date, period, direction, days) {
@@ -77,6 +114,31 @@ export function StatsPage({ athleteId }) {
     const next = clampDays(daysDraft);
     setDaysDraft(String(next));
     setCustomDays(next);
+  }
+
+  function applyCustomBound(which, nextIso) {
+    if (!nextIso) return;
+    const currentEnd = stats?.end ?? toISODate(anchorDate);
+    const currentStart = stats?.start ?? toISODate(addDays(anchorDate, -(customDays - 1)));
+    let startIso = which === 'start' ? nextIso : currentStart;
+    let endIso = which === 'end' ? nextIso : currentEnd;
+    if (parseDay(startIso) > parseDay(endIso)) {
+      const swap = startIso;
+      startIso = endIso;
+      endIso = swap;
+    }
+    let days = inclusiveDayCount(startIso, endIso);
+    if (days > MAX_CUSTOM_DAYS) {
+      if (which === 'start') {
+        endIso = toISODate(addDays(parseDay(startIso), MAX_CUSTOM_DAYS - 1));
+      } else {
+        startIso = toISODate(addDays(parseDay(endIso), -(MAX_CUSTOM_DAYS - 1)));
+      }
+      days = MAX_CUSTOM_DAYS;
+    }
+    setCustomDays(days);
+    setDaysDraft(String(days));
+    setAnchorDate(parseDay(endIso));
   }
 
   return (
@@ -147,8 +209,25 @@ export function StatsPage({ athleteId }) {
 
       {!loading && stats && (
         <section className="settings-card">
-          <h2 className="trend-section-title">
-            {formatRangeLabel(stats.period, stats.start, stats.end, stats.days)}
+          <h2 className="trend-section-title stats-range-title">
+            {period === 'custom' ? (
+              <>
+                <span>{stats.days} days ·</span>
+                <StatsRangeDate
+                  value={stats.start}
+                  ariaLabel="Range start"
+                  onChange={(value) => applyCustomBound('start', value)}
+                />
+                <span aria-hidden="true">–</span>
+                <StatsRangeDate
+                  value={stats.end}
+                  ariaLabel="Range end"
+                  onChange={(value) => applyCustomBound('end', value)}
+                />
+              </>
+            ) : (
+              formatRangeLabel(stats.period, stats.start, stats.end)
+            )}
           </h2>
 
           {stats.sports.length === 0 ? (
