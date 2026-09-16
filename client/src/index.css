@@ -1887,8 +1887,12 @@ button.danger {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  max-width: 520px;
+  max-width: 640px;
   margin-bottom: 16px;
+}
+
+.stats-page .settings-card {
+  max-width: 640px;
 }
 
 .stats-toolbar .range-selector {
@@ -1973,6 +1977,75 @@ button.danger {
 .stats-totals-row td {
   font-weight: 600;
   border-top: 1px solid var(--border);
+}
+
+.laps-table tbody tr.is-selectable {
+  cursor: pointer;
+}
+
+.laps-table tbody tr.is-selectable:hover td {
+  background: color-mix(in srgb, var(--sport-color, var(--accent)) 10%, transparent);
+}
+
+.laps-table tbody tr.is-selected td,
+.laps-table tbody tr.is-selected:nth-child(even) td {
+  background: color-mix(in srgb, var(--sport-color, var(--accent)) 18%, transparent);
+}
+
+.laps-table tbody tr.is-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--sport-color, var(--accent));
+}
+
+.mileage-chart {
+  overflow: visible;
+  --chart-y-axis-width: 48px;
+  margin-top: 8px;
+}
+
+.mileage-chart .chart-axis {
+  margin-left: var(--chart-y-axis-width);
+}
+
+.mileage-chart .chart-axis-tick:first-child .chart-axis-label,
+.mileage-chart .chart-axis-tick:last-child:not(:first-child) .chart-axis-label {
+  transform: translateX(-50%);
+}
+
+.mileage-chart svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.mileage-chart-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0 8px;
+}
+
+.mileage-chart-header .trend-section-title {
+  margin: 0;
+}
+
+.mileage-chart .chart-plot {
+  cursor: crosshair;
+}
+
+.mileage-chart-readout {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--text-h);
+}
+
+.mileage-bar.is-active {
+  stroke: var(--text-h);
+  stroke-width: 0.8;
+  paint-order: stroke fill;
 }
 
 .chart-axis {

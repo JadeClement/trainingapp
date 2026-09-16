@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { sportMeta, formatDurationSeconds, toISODate, addDays } from '../dateUtils.js';
+import { MileageBarChart } from '../components/MileageBarChart.jsx';
 
 const PERIODS = [
   { value: 'week', label: 'Week' },
@@ -82,6 +83,7 @@ export function StatsPage({ athleteId }) {
   const [daysDraft, setDaysDraft] = useState(String(DEFAULT_CUSTOM_DAYS));
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [stats, setStats] = useState(null);
+  const [selectedSport, setSelectedSport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const daysInputRef = useRef(null);
@@ -109,6 +111,18 @@ export function StatsPage({ athleteId }) {
   useEffect(() => {
     if (period === 'custom') daysInputRef.current?.focus();
   }, [period]);
+
+  useEffect(() => {
+    if (!stats?.sports?.length) {
+      setSelectedSport(null);
+      return;
+    }
+    setSelectedSport((current) => {
+      if (current && stats.sports.some((s) => s.sport === current)) return current;
+      const ranked = [...stats.sports].sort((a, b) => (b.distanceMeters || 0) - (a.distanceMeters || 0));
+      return ranked[0].sport;
+    });
+  }, [stats]);
 
   function commitCustomDays() {
     const next = clampDays(daysDraft);
@@ -245,7 +259,20 @@ export function StatsPage({ athleteId }) {
                 </thead>
                 <tbody>
                   {stats.sports.map((s) => (
-                    <tr key={s.sport}>
+                    <tr
+                      key={s.sport}
+                      className={`is-selectable${selectedSport === s.sport ? ' is-selected' : ''}`}
+                      style={{ '--sport-color': sportMeta(s.sport).color }}
+                      onClick={() => setSelectedSport(s.sport)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedSport(s.sport);
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-selected={selectedSport === s.sport}
+                    >
                       <td>
                         <span className="stats-sport-label">
                           <i className="stats-sport-dot" style={{ backgroundColor: sportMeta(s.sport).color }} />
@@ -266,6 +293,10 @@ export function StatsPage({ athleteId }) {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {selectedSport && stats.series?.length > 0 && (
+            <MileageBarChart series={stats.series} grain={stats.grain} sport={selectedSport} />
           )}
         </section>
       )}

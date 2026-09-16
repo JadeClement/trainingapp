@@ -77,10 +77,94 @@ function parseAnchorDate(value) {
   return new Date();
 }
 
+function toLocalDateString(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addCalendarDays(date, days) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+function startOfWeekDate(date, weekStartsOn) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = start.getDay();
+  const offset = weekStartsOn === 'sunday' ? day : (day + 6) % 7;
+  start.setDate(start.getDate() - offset);
+  return start;
+}
+
+function clipDate(date, min, max) {
+  if (date < min) return new Date(min);
+  if (date > max) return new Date(max);
+  return new Date(date);
+}
+
+// Week view is daily, month is weekly, year is monthly. Custom windows pick
+// the grain that keeps the bar chart readable as the range grows.
+function seriesGrain(period, days) {
+  if (period === 'year') return 'month';
+  if (period === 'month') return 'week';
+  if (period === 'custom') {
+    if (days > 90) return 'month';
+    if (days > 14) return 'week';
+  }
+  return 'day';
+}
+
+function emptyDistances() {
+  return Object.fromEntries(SPORTS.map((sport) => [sport, 0]));
+}
+
+function buildSeriesBuckets(grain, start, end, weekStartsOn) {
+  const rangeStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const rangeEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const buckets = [];
+
+  if (grain === 'month') {
+    let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    while (cursor <= rangeEnd) {
+      const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+      buckets.push({
+        start: toLocalDateString(clipDate(cursor, rangeStart, rangeEnd)),
+        end: toLocalDateString(clipDate(monthEnd, rangeStart, rangeEnd)),
+      });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+    return buckets;
+  }
+
+  if (grain === 'week') {
+    let cursor = startOfWeekDate(rangeStart, weekStartsOn);
+    while (cursor <= rangeEnd) {
+      const weekEnd = addCalendarDays(cursor, 6);
+      const bucketStart = clipDate(cursor, rangeStart, rangeEnd);
+      const bucketEnd = clipDate(weekEnd, rangeStart, rangeEnd);
+      if (bucketStart <= rangeEnd && bucketEnd >= rangeStart) {
+        buckets.push({ start: toLocalDateString(bucketStart), end: toLocalDateString(bucketEnd) });
+      }
+      cursor = addCalendarDays(cursor, 7);
+    }
+    return buckets;
+  }
+
+  let cursor = rangeStart;
+  while (cursor <= rangeEnd) {
+    const key = toLocalDateString(cursor);
+    buckets.push({ start: key, end: key });
+    cursor = addCalendarDays(cursor, 1);
+  }
+  return buckets;
+}
+
 // GET /api/stats?period=week|month|year|custom&date=YYYY-MM-DD[&days=]
 // Per-sport totals for the week/month/year containing `date`, or the
 // trailing `days` ending on `date` when period=custom. Completed workouts
-// only (what was actually done, not what's planned).
+// only (what was actually done, not what's planned). Also returns a
+// `series` of distance buckets: daily for week, weekly for month, monthly
+// for year (custom picks a grain from the window length).
 export async function getStats(req, res) {
   const period = PERIODS.includes(req.query.period) ? req.query.period : 'week';
   const days = parseCustomDays(req.query.days);
@@ -90,7 +174,7 @@ export async function getStats(req, res) {
   const { start, end } = periodBounds(period, anchor, weekStartsOn, days);
 
   const result = await pool.query(
-    `SELECT sport, actual_duration_seconds, details
+    `SELECT sport, actual_duration_seconds, details, scheduled_date::text AS scheduled_date
      FROM workouts
      WHERE user_id = $1 AND is_completed = true
        AND scheduled_date BETWEEN $2 AND $3`,
@@ -98,15 +182,27 @@ export async function getStats(req, res) {
   );
 
   const bySport = new Map(SPORTS.map((sport) => [sport, { sport, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 }]));
+  const grain = seriesGrain(period, days);
+  const series = buildSeriesBuckets(grain, start, end, weekStartsOn).map((bucket) => ({
+    ...bucket,
+    distances: emptyDistances(),
+  }));
 
   for (const row of result.rows) {
+    if (row.sport === 'rest') continue;
     if (!bySport.has(row.sport)) {
       bySport.set(row.sport, { sport: row.sport, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 });
     }
+    const meters = parseDistanceMeters(row.details?.distance);
     const bucket = bySport.get(row.sport);
     bucket.durationSeconds += row.actual_duration_seconds || 0;
-    bucket.distanceMeters += parseDistanceMeters(row.details?.distance);
+    bucket.distanceMeters += meters;
     bucket.workoutCount += 1;
+
+    const idx = series.findIndex((b) => row.scheduled_date >= b.start && row.scheduled_date <= b.end);
+    if (idx >= 0) {
+      series[idx].distances[row.sport] = (series[idx].distances[row.sport] || 0) + meters;
+    }
   }
 
   const sports = [...bySport.values()]
@@ -115,6 +211,7 @@ export async function getStats(req, res) {
     .map((s) => ({
       sport: s.sport,
       durationSeconds: s.durationSeconds,
+      distanceMeters: s.distanceMeters,
       distance: formatDistanceMeters(s.sport, s.distanceMeters),
       workoutCount: s.workoutCount,
     }));
@@ -127,5 +224,14 @@ export async function getStats(req, res) {
     { durationSeconds: 0, workoutCount: 0 }
   );
 
-  res.json({ period, days: period === 'custom' ? days : undefined, start: toDateString(start), end: toDateString(end), sports, totals });
+  res.json({
+    period,
+    grain,
+    days: period === 'custom' ? days : undefined,
+    start: toDateString(start),
+    end: toDateString(end),
+    sports,
+    totals,
+    series,
+  });
 }
