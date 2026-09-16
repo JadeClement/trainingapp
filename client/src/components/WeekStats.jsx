@@ -21,7 +21,7 @@ function emptyBucket(sport) {
   };
 }
 
-export function summarizeWeek(workouts) {
+export function summarizePeriod(workouts) {
   const bySport = new Map(SPORTS.map((s) => [s.value, emptyBucket(s.value)]));
 
   for (const w of workouts) {
@@ -43,9 +43,9 @@ export function summarizeWeek(workouts) {
   return [...bySport.values()].filter((s) => s.plannedCount > 0);
 }
 
-function formatWeekDistance(row) {
+function formatPeriodDistance(row) {
   // A 10km plan next to two runs with no distance would look like "0 / 10 km"
-  // for the whole week. Only show the planned denominator when every session
+  // for the whole period. Only show the planned denominator when every session
   // of this sport has a distance (an explicit plan, or actual once completed).
   if (row.missingPlannedDistance > 0) {
     return formatDistanceMeters(row.sport, row.doneDistance);
@@ -53,8 +53,8 @@ function formatWeekDistance(row) {
   return formatDistanceFraction(row.sport, row.doneDistance, row.plannedDistance);
 }
 
-export function WeekStats({ workouts }) {
-  const rows = useMemo(() => summarizeWeek(workouts), [workouts]);
+export function WeekStats({ workouts, title = 'Week totals' }) {
+  const rows = useMemo(() => summarizePeriod(workouts), [workouts]);
   if (rows.length === 0) return null;
 
   const totals = rows.reduce(
@@ -68,8 +68,8 @@ export function WeekStats({ workouts }) {
   );
 
   return (
-    <section className="week-stats" aria-label="Week totals">
-      <h2 className="trend-section-title">Week totals</h2>
+    <section className="week-stats" aria-label={title}>
+      <h2 className="trend-section-title">{title}</h2>
       <div className="laps-table-wrap">
         <table className="laps-table">
           <thead>
@@ -90,7 +90,7 @@ export function WeekStats({ workouts }) {
                   </span>
                 </td>
                 <td>{formatDurationFraction(s.doneDuration, s.plannedDuration) || '—'}</td>
-                <td>{formatWeekDistance(s) || '—'}</td>
+                <td>{formatPeriodDistance(s) || '—'}</td>
                 <td>
                   {s.doneCount} / {s.plannedCount}
                 </td>

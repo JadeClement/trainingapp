@@ -167,6 +167,11 @@ export function CalendarPage({ athleteId }) {
 
   const monthLabel = anchorDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const currentMonth = startOfMonth(anchorDate).getMonth();
+  const monthPrefix = toISODate(startOfMonth(anchorDate)).slice(0, 7);
+  const monthWorkouts = useMemo(
+    () => workouts.filter((w) => w.scheduledDate.startsWith(monthPrefix)),
+    [workouts, monthPrefix]
+  );
   const today = toISODate(new Date());
 
   return (
@@ -310,6 +315,7 @@ export function CalendarPage({ athleteId }) {
               );
             })}
           </div>
+          <WeekStats workouts={monthWorkouts} title="Month totals" />
         </div>
       )}
 
