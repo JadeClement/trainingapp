@@ -165,6 +165,17 @@ export function CalendarPage({ athleteId }) {
 
   const { drag, bindDraggable } = useDragReschedule(handleDropOnDay);
 
+  function openNewWorkout(date) {
+    navigate(`/workouts/new?date=${date}${newWorkoutParams}`);
+  }
+
+  function handleEmptyDayDoubleClick(event, date) {
+    if (drag) return;
+    if (event.target.closest('a, button, .workout-row, .chip')) return;
+    event.preventDefault();
+    openNewWorkout(date);
+  }
+
   const monthLabel = anchorDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const currentMonth = startOfMonth(anchorDate).getMonth();
   const monthPrefix = toISODate(startOfMonth(anchorDate)).slice(0, 7);
@@ -224,7 +235,7 @@ export function CalendarPage({ athleteId }) {
           <WeekLine
             days={days}
             workoutsByDate={workoutsByDate}
-            onSelectDay={(date) => navigate(`/workouts/new?date=${date}${newWorkoutParams}`)}
+            onSelectDay={openNewWorkout}
           />
           {days.map((day) => {
             const key = toISODate(day);
@@ -233,9 +244,11 @@ export function CalendarPage({ athleteId }) {
               <div
                 key={key}
                 data-day-key={key}
-                className={`week-day ${key === today ? 'is-today' : ''} ${key < today ? 'is-past' : ''} ${
-                  drag?.overKey === key ? 'drop-target' : ''
-                }`}
+                className={`week-day ${dayWorkouts.length === 0 ? 'is-empty' : ''} ${key === today ? 'is-today' : ''} ${
+                  key < today ? 'is-past' : ''
+                } ${drag?.overKey === key ? 'drop-target' : ''}`}
+                title={dayWorkouts.length === 0 ? 'Double-click to add a workout' : undefined}
+                onDoubleClick={(event) => handleEmptyDayDoubleClick(event, key)}
               >
                 <div className="week-day-header">
                   <span>{DAY_NAMES[day.getDay()]}</span>
@@ -244,13 +257,13 @@ export function CalendarPage({ athleteId }) {
                     type="button"
                     className="link-button"
                     aria-label={`Add workout on ${key}`}
-                    onClick={() => navigate(`/workouts/new?date=${key}${newWorkoutParams}`)}
+                    onClick={() => openNewWorkout(key)}
                   >
                     +
                   </button>
                 </div>
                 <div className="week-day-workouts">
-                  {dayWorkouts.length === 0 && <p className="empty-hint">No workouts</p>}
+                  {dayWorkouts.length === 0 && <p className="empty-hint">Double-click to add</p>}
                   {dayWorkouts.map((w) => (
                     <WorkoutRow
                       key={w.id}
@@ -282,13 +295,11 @@ export function CalendarPage({ athleteId }) {
                 <div
                   key={key}
                   data-day-key={key}
-                  className={`month-cell ${inMonth ? '' : 'is-outside'} ${key === today ? 'is-today' : ''} ${
-                    drag?.overKey === key ? 'drop-target' : ''
-                  }`}
-                  onClick={() => {
-                    if (drag) return;
-                    navigate(`/workouts/new?date=${key}${newWorkoutParams}`);
-                  }}
+                  className={`month-cell ${inMonth ? '' : 'is-outside'} ${dayWorkouts.length === 0 ? 'is-empty' : ''} ${
+                    key === today ? 'is-today' : ''
+                  } ${drag?.overKey === key ? 'drop-target' : ''}`}
+                  title={dayWorkouts.length === 0 ? 'Double-click to add a workout' : undefined}
+                  onDoubleClick={(event) => handleEmptyDayDoubleClick(event, key)}
                 >
                   <span className="month-cell-date">{day.getDate()}</span>
                   <div className="month-cell-chips">

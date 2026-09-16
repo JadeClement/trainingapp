@@ -539,6 +539,11 @@ button.danger {
   border-radius: var(--radius);
   background: var(--card-bg);
   padding: 10px 12px;
+  user-select: none;
+}
+
+.week-day.is-empty {
+  cursor: pointer;
 }
 
 .week-day.is-today {
@@ -700,10 +705,14 @@ button.danger {
   min-width: 0;
   padding: 4px;
   font-size: 11px;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  user-select: none;
+}
+
+.month-cell.is-empty {
+  cursor: pointer;
 }
 
 .month-cell.is-outside {
