@@ -11,6 +11,7 @@ import {
   startOfMonth,
   addDays,
   sportMeta,
+  isRestSport,
   formatDurationSeconds,
   weekdayLabels,
 } from '../dateUtils.js';
@@ -154,9 +155,37 @@ export function CalendarPage({ athleteId }) {
   }
 
   async function handleDropOnDay(workout, newDate) {
-    setWorkouts((prev) => prev.map((w) => (w.id === workout.id ? { ...w, scheduledDate: newDate } : w)));
+    setWorkouts((prev) =>
+      prev
+        .map((w) => (w.id === workout.id ? { ...w, scheduledDate: newDate } : w))
+        .filter((w) => isRestSport(workout.sport) || !(isRestSport(w.sport) && w.scheduledDate === newDate))
+    );
     try {
       await api.updateWorkout(workout.id, { scheduledDate: newDate });
+    } catch (err) {
+      setError(err.message);
+      load();
+    }
+  }
+
+  async function markRest(date) {
+    if ((workoutsByDate[date] || []).length > 0) return;
+    const tempId = `temp-rest-${date}`;
+    setWorkouts((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        sport: 'rest',
+        title: 'Rest',
+        scheduledDate: date,
+        isCompleted: false,
+        details: {},
+        visibility: 'hidden',
+      },
+    ]);
+    try {
+      const data = await api.createWorkout({ sport: 'rest', title: 'Rest', scheduledDate: date }, athleteId);
+      setWorkouts((prev) => prev.map((w) => (w.id === tempId ? data.workout : w)));
     } catch (err) {
       setError(err.message);
       load();
@@ -247,23 +276,28 @@ export function CalendarPage({ athleteId }) {
                 className={`week-day ${dayWorkouts.length === 0 ? 'is-empty' : ''} ${key === today ? 'is-today' : ''} ${
                   key < today ? 'is-past' : ''
                 } ${drag?.overKey === key ? 'drop-target' : ''}`}
-                title={dayWorkouts.length === 0 ? 'Double-click to add a workout' : undefined}
                 onDoubleClick={(event) => handleEmptyDayDoubleClick(event, key)}
               >
                 <div className="week-day-header">
                   <span>{DAY_NAMES[day.getDay()]}</span>
                   <span className="week-day-date">{day.getDate()}</span>
-                  <button
-                    type="button"
-                    className="link-button"
-                    aria-label={`Add workout on ${key}`}
-                    onClick={() => openNewWorkout(key)}
-                  >
-                    +
-                  </button>
+                  <div className="week-day-header-actions">
+                    {dayWorkouts.length === 0 && (
+                      <button type="button" className="link-button" onClick={() => markRest(key)}>
+                        Rest
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="link-button"
+                      aria-label={`Add workout on ${key}`}
+                      onClick={() => openNewWorkout(key)}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
                 <div className="week-day-workouts">
-                  {dayWorkouts.length === 0 && <p className="empty-hint">Double-click to add</p>}
                   {dayWorkouts.map((w) => (
                     <WorkoutRow
                       key={w.id}
@@ -298,7 +332,6 @@ export function CalendarPage({ athleteId }) {
                   className={`month-cell ${inMonth ? '' : 'is-outside'} ${dayWorkouts.length === 0 ? 'is-empty' : ''} ${
                     key === today ? 'is-today' : ''
                   } ${drag?.overKey === key ? 'drop-target' : ''}`}
-                  title={dayWorkouts.length === 0 ? 'Double-click to add a workout' : undefined}
                   onDoubleClick={(event) => handleEmptyDayDoubleClick(event, key)}
                 >
                   <span className="month-cell-date">{day.getDate()}</span>
@@ -311,8 +344,8 @@ export function CalendarPage({ athleteId }) {
                         <a
                           key={w.id}
                           href={`/workouts/${w.id}/detail`}
-                          className={`chip ${drag?.workout.id === w.id ? 'is-drag-source' : ''}`}
-                          style={{ backgroundColor: sportMeta(w.sport).color }}
+                          className={`chip ${isRestSport(w.sport) ? 'is-rest' : ''} ${drag?.workout.id === w.id ? 'is-drag-source' : ''}`}
+                          style={isRestSport(w.sport) ? undefined : { backgroundColor: sportMeta(w.sport).color }}
                           title={w.title}
                           onClick={onDragClick}
                           {...dragPointerHandlers}
@@ -332,12 +365,12 @@ export function CalendarPage({ athleteId }) {
 
       {drag && (
         <div
-          className="chip drag-ghost"
+          className={`chip drag-ghost ${isRestSport(drag.workout.sport) ? 'is-rest' : ''}`}
           style={{
             left: drag.x,
             top: drag.y,
             width: drag.width,
-            backgroundColor: sportMeta(drag.workout.sport).color,
+            ...(isRestSport(drag.workout.sport) ? {} : { backgroundColor: sportMeta(drag.workout.sport).color }),
           }}
         >
           <WorkoutChipBody workout={drag.workout} />
@@ -375,29 +408,34 @@ function WorkoutChipBody({ workout }) {
 }
 
 function WorkoutRow({ workout, onToggle, isDragSource, dragHandlers }) {
+  const rest = isRestSport(workout.sport);
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;
   const duration = formatDurationSeconds(workout.actualDurationSeconds ?? workout.plannedDurationSeconds);
   const distance = workout.details?.distance;
 
   return (
-    <div className={`workout-row ${workout.isCompleted ? 'is-completed' : ''}`}>
+    <div className={`workout-row ${workout.isCompleted ? 'is-completed' : ''} ${rest ? 'is-rest' : ''}`}>
       <span className="sport-dot" style={{ backgroundColor: meta.color }} />
       <a
         href={`/workouts/${workout.id}/detail`}
         className={`workout-row-main ${isDragSource ? 'is-drag-source' : ''}`}
         {...dragHandlers}
       >
-        <span className="workout-row-title">{workout.title}</span>
-        <span className="workout-row-meta">
-          {label}
-          {duration ? ` · ${duration}` : ''}
-          {distance ? ` · ${distance}` : ''}
-        </span>
+        <span className="workout-row-title">{rest && workout.title === 'Rest' ? 'Rest day' : workout.title}</span>
+        {!rest && (
+          <span className="workout-row-meta">
+            {label}
+            {duration ? ` · ${duration}` : ''}
+            {distance ? ` · ${distance}` : ''}
+          </span>
+        )}
       </a>
-      <button type="button" className="complete-toggle" onClick={onToggle} aria-label="Toggle complete">
-        {workout.isCompleted ? '✓' : '○'}
-      </button>
+      {!rest && (
+        <button type="button" className="complete-toggle" onClick={onToggle} aria-label="Toggle complete">
+          {workout.isCompleted ? '✓' : '○'}
+        </button>
+      )}
     </div>
   );
 }

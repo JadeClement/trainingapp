@@ -605,8 +605,15 @@ button.danger {
   opacity: 1;
 }
 
-.week-day-header .link-button {
+.week-day-header-actions {
   margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.week-day-header .link-button {
+  margin-left: 0;
 }
 
 .week-stats {
@@ -755,6 +762,20 @@ button.danger {
   text-overflow: ellipsis;
 }
 
+.chip.is-rest {
+  background: transparent;
+  color: var(--text);
+  border: 1px dashed var(--text-muted);
+}
+
+.workout-row.is-rest .workout-row-title {
+  font-style: italic;
+}
+
+.workout-row.is-rest .sport-dot {
+  opacity: 0.5;
+}
+
 .chip-meta {
   display: flex;
   flex-wrap: wrap;
@@ -858,6 +879,22 @@ button.danger {
 
 .sport-option-more.active {
   border-style: solid;
+}
+
+.rest-day-toggle {
+  align-self: flex-start;
+  border: 1px dashed var(--border);
+  background: transparent;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.rest-day-toggle.active {
+  border-style: solid;
+  border-color: var(--text-muted);
+  color: var(--text-h);
 }
 
 .form-actions {

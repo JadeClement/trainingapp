@@ -6,7 +6,14 @@ export const SPORTS = [
   { value: 'other', label: 'Other', color: '#6c8683' },
 ];
 
+export const REST_SPORT = { value: 'rest', label: 'Rest', color: '#8a9a97' };
+
+export function isRestSport(sport) {
+  return sport === 'rest';
+}
+
 export function sportMeta(sport) {
+  if (isRestSport(sport)) return REST_SPORT;
   return SPORTS.find((s) => s.value === sport) || SPORTS[SPORTS.length - 1];
 }
 

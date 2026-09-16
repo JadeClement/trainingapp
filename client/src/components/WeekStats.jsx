@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   SPORTS,
   sportMeta,
+  isRestSport,
   workoutDistanceMeters,
   formatDurationFraction,
   formatDistanceFraction,
@@ -25,6 +26,7 @@ export function summarizePeriod(workouts) {
   const bySport = new Map(SPORTS.map((s) => [s.value, emptyBucket(s.value)]));
 
   for (const w of workouts) {
+    if (isRestSport(w.sport)) continue;
     if (!bySport.has(w.sport)) bySport.set(w.sport, emptyBucket(w.sport));
     const bucket = bySport.get(w.sport);
     const plannedDuration = w.plannedDurationSeconds ?? (w.isCompleted ? w.actualDurationSeconds : 0) ?? 0;

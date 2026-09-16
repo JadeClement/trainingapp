@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { SPORTS, sportMeta, toISODate } from '../dateUtils.js';
+import { SPORTS, sportMeta, toISODate, isRestSport } from '../dateUtils.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { ActivityTypePicker } from '../components/ActivityTypePicker.jsx';
 
@@ -86,36 +86,51 @@ export function WorkoutFormPage() {
     setError(null);
     setSaving(true);
 
-    const details = { ...detailsExtra };
-    if (activityType) details.activityType = activityType;
-    else delete details.activityType;
+    const rest = isRestSport(sport);
+    const details = rest ? {} : { ...detailsExtra };
+    if (!rest) {
+      if (activityType) details.activityType = activityType;
+      else delete details.activityType;
 
-    if (!isCompleted) {
-      if (distance) {
-        details.distance = distance;
-        details.plannedDistance = distance;
+      if (!isCompleted) {
+        if (distance) {
+          details.distance = distance;
+          details.plannedDistance = distance;
+        } else {
+          delete details.distance;
+          delete details.plannedDistance;
+        }
       } else {
-        delete details.distance;
-        delete details.plannedDistance;
+        if (distance) details.distance = distance;
+        else delete details.distance;
+        if (plannedDistance) details.plannedDistance = plannedDistance;
+        else delete details.plannedDistance;
       }
-    } else {
-      if (distance) details.distance = distance;
-      else delete details.distance;
-      if (plannedDistance) details.plannedDistance = plannedDistance;
-      else delete details.plannedDistance;
     }
 
-    const payload = {
-      sport,
-      title,
-      scheduledDate,
-      notes: notes || null,
-      visibility,
-      plannedDurationSeconds: minutesStrToSeconds(plannedMinutes),
-      actualDurationSeconds: minutesStrToSeconds(actualMinutes),
-      isCompleted,
-      details,
-    };
+    const payload = rest
+      ? {
+          sport: 'rest',
+          title: title || 'Rest',
+          scheduledDate,
+          notes: notes || null,
+          visibility,
+          plannedDurationSeconds: null,
+          actualDurationSeconds: null,
+          isCompleted: false,
+          details,
+        }
+      : {
+          sport,
+          title,
+          scheduledDate,
+          notes: notes || null,
+          visibility,
+          plannedDurationSeconds: minutesStrToSeconds(plannedMinutes),
+          actualDurationSeconds: minutesStrToSeconds(actualMinutes),
+          isCompleted,
+          details,
+        };
 
     try {
       let savedWorkout;
@@ -149,11 +164,27 @@ export function WorkoutFormPage() {
   if (loading) return <p className="page-loading">Loading…</p>;
 
   const isSynced = source === 'strava_synced';
+  const isRest = isRestSport(sport);
+
+  function toggleRestDay() {
+    if (isRest) {
+      setSport('run');
+      if (title === 'Rest') setTitle('');
+      return;
+    }
+    setSport('rest');
+    setActivityType('');
+    if (!title) setTitle('Rest');
+    setPlannedMinutes('');
+    setActualMinutes('');
+    setDistance('');
+    setPlannedDistance('');
+  }
 
   return (
     <div className="workout-form-page">
       <form className="workout-form" onSubmit={handleSubmit}>
-        <h1>{isEditing ? 'Edit workout' : 'New workout'}</h1>
+        <h1>{isRest ? (isEditing ? 'Edit rest day' : 'Rest day') : isEditing ? 'Edit workout' : 'New workout'}</h1>
         {error && <p className="form-error">{error}</p>}
 
         {isSynced && (
@@ -171,30 +202,42 @@ export function WorkoutFormPage() {
           </p>
         )}
 
-        <div className="sport-picker">
-          {QUICK_SPORTS.map((s) => (
+        {!isRest && (
+          <div className="sport-picker">
+            {QUICK_SPORTS.map((s) => (
+              <button
+                type="button"
+                key={s.value}
+                className={`sport-option ${!activityType && sport === s.value ? 'active' : ''}`}
+                style={{ '--sport-color': s.color }}
+                onClick={() => {
+                  setSport(s.value);
+                  setActivityType('');
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
             <button
               type="button"
-              key={s.value}
-              className={`sport-option ${!activityType && sport === s.value ? 'active' : ''}`}
-              style={{ '--sport-color': s.color }}
-              onClick={() => {
-                setSport(s.value);
-                setActivityType('');
-              }}
+              className={`sport-option sport-option-more ${activityType ? 'active' : ''}`}
+              style={activityType ? { '--sport-color': sportMeta(sport).color } : undefined}
+              onClick={() => setShowActivityPicker(true)}
             >
-              {s.label}
+              {activityType || '+ More'}
             </button>
-          ))}
+          </div>
+        )}
+
+        {!isSynced && (
           <button
             type="button"
-            className={`sport-option sport-option-more ${activityType ? 'active' : ''}`}
-            style={activityType ? { '--sport-color': sportMeta(sport).color } : undefined}
-            onClick={() => setShowActivityPicker(true)}
+            className={`rest-day-toggle ${isRest ? 'active' : ''}`}
+            onClick={toggleRestDay}
           >
-            {activityType || '+ More'}
+            Rest day
           </button>
-        </div>
+        )}
 
         <label>
           Title
@@ -202,7 +245,7 @@ export function WorkoutFormPage() {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Easy 5k, Interval bike"
+            placeholder={isRest ? 'Rest' : 'e.g. Easy 5k, Interval bike'}
             required
             autoFocus
           />
@@ -219,19 +262,21 @@ export function WorkoutFormPage() {
               disabled={isSynced}
             />
           </label>
-          <label>
-            Planned (min)
-            <input
-              type="number"
-              min="0"
-              value={plannedMinutes}
-              onChange={(e) => setPlannedMinutes(e.target.value)}
-              placeholder="45"
-            />
-          </label>
+          {!isRest && (
+            <label>
+              Planned (min)
+              <input
+                type="number"
+                min="0"
+                value={plannedMinutes}
+                onChange={(e) => setPlannedMinutes(e.target.value)}
+                placeholder="45"
+              />
+            </label>
+          )}
         </div>
 
-        {isEditing && (
+        {isEditing && !isRest && (
           <div className="form-row">
             <label>
               Actual (min)
@@ -254,20 +299,22 @@ export function WorkoutFormPage() {
           </div>
         )}
 
-        <label>
-          {isCompleted ? 'Distance' : 'Planned distance'}{' '}
-          <span className="label-hint">
-            {isCompleted || sport === 'strength' || sport === 'other'
-              ? '(optional)'
-              : '(optional — used in week totals)'}
-          </span>
-          <input
-            type="text"
-            value={distance}
-            onChange={(e) => setDistance(e.target.value)}
-            placeholder={sport === 'swim' ? 'e.g. 1500m' : 'e.g. 10km'}
-          />
-        </label>
+        {!isRest && (
+          <label>
+            {isCompleted ? 'Distance' : 'Planned distance'}{' '}
+            <span className="label-hint">
+              {isCompleted || sport === 'strength' || sport === 'other'
+                ? '(optional)'
+                : '(optional — used in week totals)'}
+            </span>
+            <input
+              type="text"
+              value={distance}
+              onChange={(e) => setDistance(e.target.value)}
+              placeholder={sport === 'swim' ? 'e.g. 1500m' : 'e.g. 10km'}
+            />
+          </label>
+        )}
 
         <label>
           Visibility
@@ -314,7 +361,7 @@ export function WorkoutFormPage() {
 
       {confirmingDelete && (
         <ConfirmDialog
-          title="Delete workout?"
+          title={isRest ? 'Delete rest day?' : 'Delete workout?'}
           message={`This will permanently delete "${title}". This can't be undone.`}
           confirmLabel="Delete"
           onConfirm={handleDelete}

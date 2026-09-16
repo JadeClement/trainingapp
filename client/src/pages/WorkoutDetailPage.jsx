@@ -7,7 +7,7 @@ import { LapsTable } from '../components/LapsTable.jsx';
 import { MatchStravaControl, isMatchedPlan } from '../components/MatchStravaControl.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { WorkoutComments } from '../components/WorkoutComments.jsx';
-import { sportMeta, formatDurationSeconds } from '../dateUtils.js';
+import { sportMeta, formatDurationSeconds, isRestSport } from '../dateUtils.js';
 import {
   paceOrSpeedSeries,
   paceOrSpeedUnit,
@@ -85,11 +85,12 @@ export function WorkoutDetailPage() {
 
   const maxHr = hrZones.find((z) => z.sport === workout.sport)?.maxHr;
 
+  const rest = isRestSport(workout.sport);
   const meta = sportMeta(workout.sport);
-  const label = workout.details?.activityType || meta.label;
+  const label = rest ? 'Rest day' : workout.details?.activityType || meta.label;
   const isOwner = user.id === workout.userId;
   const matched = isMatchedPlan(workout);
-  const canMatch = isOwner && !matched;
+  const canMatch = isOwner && !matched && !rest;
 
   return (
     <div className="workout-detail-page">
@@ -185,8 +186,11 @@ export function WorkoutDetailPage() {
         </div>
       )}
 
-      {workout.source !== 'strava_synced' && (
+      {workout.source !== 'strava_synced' && !rest && (
         <p className="empty-hint">This workout was entered manually, so there's no recorded data to chart.</p>
+      )}
+      {rest && !workout.notes && (
+        <p className="empty-hint">Rest day — no training planned.</p>
       )}
 
       {workout.source === 'strava_synced' && streams && (

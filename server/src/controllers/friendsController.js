@@ -195,6 +195,7 @@ export async function listOverlaps(req, res) {
      JOIN workouts w2 ON w2.scheduled_date = w1.scheduled_date AND w2.sport = w1.sport AND w2.user_id <> w1.user_id
      JOIN friendships f ON f.user_id = w1.user_id AND f.friend_id = w2.user_id AND f.status = 'accepted'
      WHERE w1.user_id = $1
+       AND w1.sport <> 'rest'
        AND w1.scheduled_date >= CURRENT_DATE
        AND w1.visibility IN ('close_friends', 'everyone')
        AND w2.visibility IN ('close_friends', 'everyone')

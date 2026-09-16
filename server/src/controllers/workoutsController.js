@@ -6,12 +6,33 @@ import { splitLapsAtElapsed } from '../services/lapSplit.js';
 import { isAcceptedCoach } from './coachController.js';
 import { recomputeTrainingLoad } from '../services/trainingLoad.js';
 
-const SPORTS = ['swim', 'bike', 'run', 'strength', 'other'];
+const SPORTS = ['swim', 'bike', 'run', 'strength', 'other', 'rest'];
 const VISIBILITIES = ['hidden', 'close_friends', 'everyone'];
 
 function toDateOnlyString(value) {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return value;
+}
+
+export async function clearRestOnDate(userId, date) {
+  const day = toDateOnlyString(date);
+  if (!userId || !day) return;
+  await pool.query(
+    `DELETE FROM workouts WHERE user_id = $1 AND scheduled_date = $2 AND sport = 'rest'`,
+    [userId, day]
+  );
+}
+
+async function dayHasTraining(userId, date, exceptId = null) {
+  const params = [userId, toDateOnlyString(date)];
+  let sql = `SELECT 1 FROM workouts WHERE user_id = $1 AND scheduled_date = $2 AND sport <> 'rest'`;
+  if (exceptId) {
+    params.push(exceptId);
+    sql += ` AND id <> $3`;
+  }
+  sql += ' LIMIT 1';
+  const result = await pool.query(sql, params);
+  return Boolean(result.rows[0]);
 }
 
 function toPublicWorkout(row) {
@@ -121,30 +142,61 @@ export async function createWorkout(req, res) {
     details = {},
   } = req.body;
 
-  if (!sport || !title || !scheduledDate) {
+  const resolvedTitle = sport === 'rest' ? title || 'Rest' : title;
+  if (!sport || !resolvedTitle || !scheduledDate) {
     return res.status(400).json({ error: 'sport, title, and scheduledDate are required' });
   }
   validateSportAndVisibility(sport, visibility);
 
-  const result = await pool.query(
-    `INSERT INTO workouts
-       (user_id, created_by, sport, title, notes, scheduled_date, visibility, planned_duration_seconds, details)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING *`,
-    [
-      req.targetUserId,
-      req.userId,
-      sport,
-      title,
-      notes,
-      scheduledDate,
-      visibility,
-      plannedDurationSeconds,
-      details,
-    ]
-  );
+  if (sport === 'rest') {
+    if (await dayHasTraining(req.targetUserId, scheduledDate)) {
+      return res.status(409).json({ error: 'That day already has a workout' });
+    }
+    const existing = await pool.query(
+      `SELECT * FROM workouts WHERE user_id = $1 AND scheduled_date = $2 AND sport = 'rest'`,
+      [req.targetUserId, scheduledDate]
+    );
+    if (existing.rows[0]) {
+      return res.json({ workout: toPublicWorkout(existing.rows[0]) });
+    }
+  }
+
+  let result;
+  try {
+    result = await pool.query(
+      `INSERT INTO workouts
+         (user_id, created_by, sport, title, notes, scheduled_date, visibility, planned_duration_seconds, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        req.targetUserId,
+        req.userId,
+        sport,
+        resolvedTitle,
+        notes,
+        scheduledDate,
+        visibility,
+        sport === 'rest' ? null : plannedDurationSeconds,
+        sport === 'rest' ? {} : details,
+      ]
+    );
+  } catch (err) {
+    if (err.code === '23505' && sport === 'rest') {
+      const existing = await pool.query(
+        `SELECT * FROM workouts WHERE user_id = $1 AND scheduled_date = $2 AND sport = 'rest'`,
+        [req.targetUserId, scheduledDate]
+      );
+      if (existing.rows[0]) {
+        return res.json({ workout: toPublicWorkout(existing.rows[0]) });
+      }
+    }
+    throw err;
+  }
 
   const matched = await tryAutoMatchPlanned(result.rows[0]);
+  if (sport !== 'rest') {
+    await clearRestOnDate(req.targetUserId, scheduledDate);
+  }
   res.status(201).json({ workout: toPublicWorkout(matched || result.rows[0]) });
 }
 
@@ -168,33 +220,53 @@ export async function updateWorkout(req, res) {
 
   validateSportAndVisibility(sport, visibility);
 
+  const rest = sport === 'rest';
+  if (rest && (await dayHasTraining(current.user_id, scheduledDate, current.id))) {
+    return res.status(409).json({ error: 'That day already has a workout' });
+  }
+  const nextPlanned = rest ? null : plannedDurationSeconds;
+  const nextActual = rest ? null : actualDurationSeconds;
+  const nextCompleted = rest ? false : isCompleted;
+  const nextDetails = rest ? {} : details;
+
   // Once a synced workout's title is hand-edited, protect it from being
   // clobbered by that activity's name on the next Strava sync.
   const titleCustom = current.title_custom || title !== current.title;
 
-  const result = await pool.query(
-    `UPDATE workouts SET
-       sport = $1, title = $2, notes = $3, scheduled_date = $4, visibility = $5,
-       planned_duration_seconds = $6, actual_duration_seconds = $7, is_completed = $8,
-       details = $9, title_custom = $10, updated_at = now()
-     WHERE id = $11
-     RETURNING *`,
-    [
-      sport,
-      title,
-      notes,
-      scheduledDate,
-      visibility,
-      plannedDurationSeconds,
-      actualDurationSeconds,
-      isCompleted,
-      details,
-      titleCustom,
-      req.params.id,
-    ]
-  );
+  let result;
+  try {
+    result = await pool.query(
+      `UPDATE workouts SET
+         sport = $1, title = $2, notes = $3, scheduled_date = $4, visibility = $5,
+         planned_duration_seconds = $6, actual_duration_seconds = $7, is_completed = $8,
+         details = $9, title_custom = $10, updated_at = now()
+       WHERE id = $11
+       RETURNING *`,
+      [
+        sport,
+        title,
+        notes,
+        scheduledDate,
+        visibility,
+        nextPlanned,
+        nextActual,
+        nextCompleted,
+        nextDetails,
+        titleCustom,
+        req.params.id,
+      ]
+    );
+  } catch (err) {
+    if (err.code === '23505' && rest) {
+      return res.status(409).json({ error: 'That day is already marked as rest' });
+    }
+    throw err;
+  }
 
   const matched = await tryAutoMatchPlanned(result.rows[0]);
+  if (!rest) {
+    await clearRestOnDate(current.user_id, scheduledDate);
+  }
   res.json({ workout: toPublicWorkout(matched || result.rows[0]) });
 }
 
@@ -205,6 +277,10 @@ export async function completeWorkout(req, res) {
   const { workout: current, canEdit } = await loadWorkoutAccess(req.userId, req.params.id);
   if (!current || !canEdit) {
     return res.status(404).json({ error: 'Workout not found' });
+  }
+
+  if (current.sport === 'rest') {
+    return res.status(400).json({ error: 'Rest days are not completed as workouts' });
   }
 
   const mergedDetails = details ? { ...current.details, ...details } : current.details;
@@ -471,6 +547,7 @@ async function mergeWorkouts(planned, synced) {
 // exactly one same-day(-ish)/sport candidate; ambiguous cases are left for
 // the manual "Match with Strava" picker.
 async function tryAutoMatchPlanned(plannedWorkout) {
+  if (plannedWorkout.sport === 'rest') return null;
   if (plannedWorkout.strava_activity_id || isMergedPlan(plannedWorkout)) {
     return null;
   }

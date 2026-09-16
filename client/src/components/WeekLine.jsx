@@ -1,4 +1,4 @@
-import { sportMeta, formatDurationSeconds, toISODate } from '../dateUtils.js';
+import { sportMeta, formatDurationSeconds, toISODate, isRestSport } from '../dateUtils.js';
 
 // The app's signature element: one tick per day, height mapped to that
 // day's planned/actual training load, split into stacked segments colored
@@ -9,13 +9,15 @@ export function WeekLine({ days, workoutsByDate, onSelectDay }) {
   const loads = days.map((day) => {
     const key = toISODate(day);
     const dayWorkouts = workoutsByDate[key] || [];
-    const seconds = dayWorkouts.reduce(
+    const training = dayWorkouts.filter((w) => !isRestSport(w.sport));
+    const hasRest = dayWorkouts.some((w) => isRestSport(w.sport));
+    const seconds = training.reduce(
       (sum, w) => sum + (w.actualDurationSeconds ?? w.plannedDurationSeconds ?? 0),
       0
     );
 
     const bySport = new Map();
-    for (const w of dayWorkouts) {
+    for (const w of training) {
       const s = w.actualDurationSeconds ?? w.plannedDurationSeconds ?? 0;
       const bucket = bySport.get(w.sport) || { seconds: 0, allDone: true };
       bucket.seconds += s;
@@ -31,7 +33,15 @@ export function WeekLine({ days, workoutsByDate, onSelectDay }) {
       pending: !bucket.allDone,
     }));
 
-    return { key, seconds, segments };
+    if (segments.length === 0 && hasRest) {
+      segments.push({
+        color: sportMeta('rest').color,
+        weight: 1,
+        pending: false,
+      });
+    }
+
+    return { key, seconds, segments, restOnly: hasRest && training.length === 0 };
   });
 
   const max = Math.max(...loads.map((l) => l.seconds), 1);
@@ -39,14 +49,14 @@ export function WeekLine({ days, workoutsByDate, onSelectDay }) {
   return (
     <div className="week-line" role="img" aria-label="This week's planned training load by day">
       {loads.map((l) => {
-        const heightPct = l.seconds > 0 ? Math.max((l.seconds / max) * 100, 12) : 6;
+        const heightPct = l.seconds > 0 ? Math.max((l.seconds / max) * 100, 12) : l.restOnly ? 18 : 6;
         return (
           <button
             type="button"
             key={l.key}
             className="week-line-tick"
             style={{ height: `${heightPct}%` }}
-            title={`${l.key}${l.seconds ? ` · ${formatDurationSeconds(l.seconds)}` : ''}`}
+            title={`${l.key}${l.seconds ? ` · ${formatDurationSeconds(l.seconds)}` : l.restOnly ? ' · Rest' : ''}`}
             onClick={() => onSelectDay?.(l.key)}
           >
             {l.segments.length > 0 ? (
