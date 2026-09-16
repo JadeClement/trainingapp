@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { formatDurationSeconds } from '../dateUtils.js';
+import { formatDurationSeconds, formatDistanceLabel } from '../dateUtils.js';
 
 export function isMatchedPlan(workout) {
   if (!workout?.stravaActivityId) return false;
@@ -18,7 +18,7 @@ function candidateLabel(c) {
   const duration = c.actualDurationSeconds || c.plannedDurationSeconds;
   if (duration) parts.push(formatDurationSeconds(duration));
   if (c.details?.distance || c.details?.plannedDistance) {
-    parts.push(c.details.distance || c.details.plannedDistance);
+    parts.push(formatDistanceLabel(c.sport, c.details.distance || c.details.plannedDistance));
   }
   return parts.join(' · ');
 }

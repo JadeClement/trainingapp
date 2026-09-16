@@ -4,8 +4,9 @@ import { velocityToValue, formatPaceOrSpeed, paceOrSpeedUnit } from '../streamUt
 
 function formatDistance(sport, meters) {
   if (meters === null || meters === undefined) return '—';
-  if (sport === 'swim') return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(2)}km`;
+  const km = meters / 1000;
+  if (sport === 'swim') return `${km.toFixed(3)}km`;
+  return `${km.toFixed(2)}km`;
 }
 
 function formatLapPace(sport, avgSpeedMps) {

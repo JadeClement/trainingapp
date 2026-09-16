@@ -13,6 +13,7 @@ import {
   sportMeta,
   isRestSport,
   formatDurationSeconds,
+  formatDistanceLabel,
   weekdayLabels,
 } from '../dateUtils.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -382,7 +383,7 @@ export function CalendarPage({ athleteId }) {
 
 function WorkoutChipBody({ workout }) {
   const duration = formatDurationSeconds(workout.actualDurationSeconds ?? workout.plannedDurationSeconds);
-  const distance = workout.details?.distance;
+  const distance = formatDistanceLabel(workout.sport, workout.details?.distance);
   return (
     <>
       <div className="chip-title">
@@ -412,7 +413,7 @@ function WorkoutRow({ workout, onToggle, isDragSource, dragHandlers }) {
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;
   const duration = formatDurationSeconds(workout.actualDurationSeconds ?? workout.plannedDurationSeconds);
-  const distance = workout.details?.distance;
+  const distance = formatDistanceLabel(workout.sport, workout.details?.distance);
 
   return (
     <div className={`workout-row ${workout.isCompleted ? 'is-completed' : ''} ${rest ? 'is-rest' : ''}`}>

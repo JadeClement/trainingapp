@@ -118,8 +118,9 @@ async function setHistoryAfter(userId, isoDate) {
 
 function metersToDistanceLabel(sport, meters) {
   if (!meters) return null;
-  if (sport === 'swim') return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
+  const km = meters / 1000;
+  if (sport === 'swim') return `${km.toFixed(3)}km`;
+  return `${km.toFixed(1)}km`;
 }
 
 async function importActivities(userId, activities) {

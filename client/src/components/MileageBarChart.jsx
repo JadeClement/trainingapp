@@ -12,23 +12,25 @@ const GRAIN_LABEL = {
   day: 'by day',
   week: 'by week',
   month: 'by month',
+  year: 'by year',
 };
 
 function clamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
 }
 
-function toChartValue(sport, meters) {
+function toChartValue(meters) {
   if (!meters) return 0;
-  return sport === 'swim' ? meters : meters / 1000;
+  return meters / 1000;
 }
 
 function formatMileage(sport, meters) {
-  return formatDistanceMeters(sport, meters) || (sport === 'swim' ? '0m' : '0km');
+  return formatDistanceMeters(sport, meters) || (sport === 'swim' ? '0.000km' : '0km');
 }
 
 function formatBucketLabel(grain, start, bucketCount) {
   const d = new Date(`${start}T00:00:00`);
+  if (grain === 'year') return String(d.getFullYear());
   if (grain === 'month') return d.toLocaleDateString(undefined, { month: 'short' });
   if (grain === 'week') return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   if (bucketCount > 7) return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -37,6 +39,7 @@ function formatBucketLabel(grain, start, bucketCount) {
 
 function formatReadoutDate(grain, start, end) {
   const startDate = new Date(`${start}T00:00:00`);
+  if (grain === 'year') return String(startDate.getFullYear());
   if (grain === 'month') {
     return startDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }
@@ -46,6 +49,11 @@ function formatReadoutDate(grain, start, end) {
   const endDate = new Date(`${end}T00:00:00`);
   const opts = { month: 'short', day: 'numeric' };
   return `${startDate.toLocaleDateString(undefined, opts)} – ${endDate.toLocaleDateString(undefined, opts)}`;
+}
+
+function overlapsFocus(bucket, focusStart, focusEnd) {
+  if (!focusStart || !focusEnd) return false;
+  return bucket.start <= focusEnd && bucket.end >= focusStart;
 }
 
 function categoryTicks(items, xPct) {
@@ -78,7 +86,7 @@ function categoryTicks(items, xPct) {
   return kept;
 }
 
-export function MileageBarChart({ series, grain, sport }) {
+export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) {
   const plotRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(null);
   const meta = sportMeta(sport);
@@ -90,21 +98,22 @@ export function MileageBarChart({ series, grain, sport }) {
       start: bucket.start,
       end: bucket.end,
       meters: bucket.distances?.[sport] || 0,
-      value: toChartValue(sport, bucket.distances?.[sport] || 0),
+      value: toChartValue(bucket.distances?.[sport] || 0),
       label: formatBucketLabel(grain, bucket.start, buckets.length),
+      isFocus: overlapsFocus(bucket, focusStart, focusEnd),
     }));
-  }, [series, sport, grain]);
+  }, [series, sport, grain, focusStart, focusEnd]);
 
   useEffect(() => {
     setActiveIndex(null);
   }, [sport, series, grain]);
 
   const totalMeters = useMemo(() => data.reduce((sum, d) => sum + d.meters, 0), [data]);
-  const unit = sport === 'swim' ? 'm' : 'km';
+  const unit = 'km';
   const grainLabel = GRAIN_LABEL[grain] || 'by day';
 
   const rawMax = Math.max(...data.map((d) => d.value), 0);
-  const domainMax = Math.max(rawMax, sport === 'swim' ? 500 : 1);
+  const domainMax = Math.max(rawMax, 1);
   const ticks = axisTicks(0, domainMax);
   const scaleMax = Math.max(domainMax, ticks[ticks.length - 1] || domainMax);
 
@@ -118,10 +127,13 @@ export function MileageBarChart({ series, grain, sport }) {
   const yPct = (v) => (yScale(v) / HEIGHT) * 100;
   const axisTicksForPlot = categoryTicks(data, xPct);
 
+  const focusBucket = data.find((d) => d.isFocus);
   const hovered = activeIndex != null ? data[activeIndex] : null;
   const readout = hovered
     ? `${formatReadoutDate(grain, hovered.start, hovered.end)} · ${formatMileage(sport, hovered.meters)}`
-    : `${formatMileage(sport, totalMeters)} total`;
+    : focusBucket
+      ? `${formatReadoutDate(grain, focusBucket.start, focusBucket.end)} · ${formatMileage(sport, focusBucket.meters)}`
+      : `${formatMileage(sport, totalMeters)} total`;
 
   function indexFromClientX(clientX) {
     const plot = plotRef.current;
@@ -173,6 +185,7 @@ export function MileageBarChart({ series, grain, sport }) {
             {data.map((d, i) => {
               const barHeight = d.value > 0 ? (d.value / (scaleMax || 1)) * innerHeight : 0;
               if (barHeight <= 0) return null;
+              const isActive = i === activeIndex;
               return (
                 <rect
                   key={`${d.start}-${i}`}
@@ -182,7 +195,8 @@ export function MileageBarChart({ series, grain, sport }) {
                   height={barHeight}
                   rx="2"
                   fill={color}
-                  className={i === activeIndex ? 'mileage-bar is-active' : 'mileage-bar'}
+                  opacity={d.isFocus || isActive ? 1 : 0.4}
+                  className={isActive ? 'mileage-bar is-active' : 'mileage-bar'}
                 />
               );
             })}

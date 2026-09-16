@@ -94,7 +94,7 @@ export function formatDurationFraction(doneSeconds, plannedSeconds) {
   return `${formatDurationSeconds(doneSeconds || 0)} / ${formatDurationSeconds(plannedSeconds || 0)}`;
 }
 
-// details.distance is a free-text label ("85.0km", "1500m", ...) — parse it
+// details.distance is a free-text label ("85.0km", "1.500km", ...) — parse it
 // back to meters so weekly/stats totals can be summed across workouts.
 export function parseDistanceMeters(distance) {
   if (!distance) return 0;
@@ -108,24 +108,32 @@ export function parseDistanceMeters(distance) {
   return value;
 }
 
-function formatKmAmount(meters) {
+function formatKmAmount(meters, decimals) {
   const km = meters / 1000;
+  if (decimals != null) return km.toFixed(decimals);
   if (Math.abs(km - Math.round(km)) < 0.05) return String(Math.round(km));
   return km.toFixed(1);
 }
 
+function kmDecimals(sport) {
+  return sport === 'swim' ? 3 : undefined;
+}
+
 export function formatDistanceMeters(sport, meters) {
   if (!meters) return null;
-  if (sport === 'swim') return `${Math.round(meters)}m`;
-  return `${formatKmAmount(meters)}km`;
+  return `${formatKmAmount(meters, kmDecimals(sport))}km`;
 }
 
 export function formatDistanceFraction(sport, doneMeters, plannedMeters) {
   if (!doneMeters && !plannedMeters) return null;
-  if (sport === 'swim') {
-    return `${Math.round(doneMeters)} / ${Math.round(plannedMeters)} m`;
-  }
-  return `${formatKmAmount(doneMeters)} / ${formatKmAmount(plannedMeters)} km`;
+  const decimals = kmDecimals(sport);
+  return `${formatKmAmount(doneMeters, decimals)} / ${formatKmAmount(plannedMeters, decimals)} km`;
+}
+
+export function formatDistanceLabel(sport, distance) {
+  if (!distance) return null;
+  const meters = parseDistanceMeters(distance);
+  return formatDistanceMeters(sport, meters) || String(distance).trim();
 }
 
 // Planned distance is stored separately so a 20km plan that you actually

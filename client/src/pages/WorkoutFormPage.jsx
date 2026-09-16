@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { SPORTS, sportMeta, toISODate, isRestSport } from '../dateUtils.js';
+import { SPORTS, sportMeta, toISODate, isRestSport, formatDistanceLabel } from '../dateUtils.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { ActivityTypePicker } from '../components/ActivityTypePicker.jsx';
 
@@ -66,11 +66,19 @@ export function WorkoutFormPage() {
         setActualMinutes(secondsToMinutesStr(w.actualDurationSeconds));
         setNotes(w.notes || '');
         setDistance(
-          w.isCompleted
-            ? w.details?.distance || ''
-            : w.details?.plannedDistance || w.details?.distance || ''
+          formatDistanceLabel(
+            w.sport,
+            w.isCompleted
+              ? w.details?.distance
+              : w.details?.plannedDistance || w.details?.distance
+          ) || ''
         );
-        setPlannedDistance(w.details?.plannedDistance || (!w.isCompleted ? w.details?.distance : '') || '');
+        setPlannedDistance(
+          formatDistanceLabel(
+            w.sport,
+            w.details?.plannedDistance || (!w.isCompleted ? w.details?.distance : '')
+          ) || ''
+        );
         setDetailsExtra(w.details || {});
         setVisibility(w.visibility);
         setIsCompleted(w.isCompleted);
@@ -94,16 +102,17 @@ export function WorkoutFormPage() {
 
       if (!isCompleted) {
         if (distance) {
-          details.distance = distance;
-          details.plannedDistance = distance;
+          const label = formatDistanceLabel(sport, distance) || distance;
+          details.distance = label;
+          details.plannedDistance = label;
         } else {
           delete details.distance;
           delete details.plannedDistance;
         }
       } else {
-        if (distance) details.distance = distance;
+        if (distance) details.distance = formatDistanceLabel(sport, distance) || distance;
         else delete details.distance;
-        if (plannedDistance) details.plannedDistance = plannedDistance;
+        if (plannedDistance) details.plannedDistance = formatDistanceLabel(sport, plannedDistance) || plannedDistance;
         else delete details.plannedDistance;
       }
     }
@@ -311,7 +320,7 @@ export function WorkoutFormPage() {
               type="text"
               value={distance}
               onChange={(e) => setDistance(e.target.value)}
-              placeholder={sport === 'swim' ? 'e.g. 1500m' : 'e.g. 10km'}
+              placeholder={sport === 'swim' ? 'e.g. 1.500km' : 'e.g. 10km'}
             />
           </label>
         )}

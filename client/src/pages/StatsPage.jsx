@@ -296,7 +296,13 @@ export function StatsPage({ athleteId }) {
           )}
 
           {selectedSport && stats.series?.length > 0 && (
-            <MileageBarChart series={stats.series} grain={stats.grain} sport={selectedSport} />
+            <MileageBarChart
+              series={stats.series}
+              grain={stats.grain}
+              sport={selectedSport}
+              focusStart={stats.start}
+              focusEnd={stats.end}
+            />
           )}
         </section>
       )}

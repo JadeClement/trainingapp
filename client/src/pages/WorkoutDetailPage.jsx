@@ -7,7 +7,7 @@ import { LapsTable } from '../components/LapsTable.jsx';
 import { MatchStravaControl, isMatchedPlan } from '../components/MatchStravaControl.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { WorkoutComments } from '../components/WorkoutComments.jsx';
-import { sportMeta, formatDurationSeconds, isRestSport } from '../dateUtils.js';
+import { sportMeta, formatDurationSeconds, formatDistanceLabel, isRestSport } from '../dateUtils.js';
 import {
   paceOrSpeedSeries,
   paceOrSpeedUnit,
@@ -172,7 +172,7 @@ export function WorkoutDetailPage() {
           )}
           {workout.details?.distance && (
             <div className="chart-stat">
-              <span className="chart-stat-value">{workout.details.distance}</span>
+              <span className="chart-stat-value">{formatDistanceLabel(workout.sport, workout.details.distance)}</span>
               <span className="chart-stat-label">Distance</span>
             </div>
           )}
