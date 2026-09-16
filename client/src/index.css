@@ -1101,6 +1101,20 @@ button.danger {
   color: var(--text-h);
 }
 
+.settings-subhead {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  color: var(--text-h);
+}
+
+.settings-card .view-toggle {
+  margin-bottom: 8px;
+}
+
+.settings-status a {
+  color: var(--accent);
+}
+
 .settings-group-title {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -1376,6 +1390,7 @@ button.danger {
 
 .range-selector {
   display: inline-flex;
+  flex-wrap: wrap;
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;

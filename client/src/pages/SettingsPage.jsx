@@ -1,9 +1,24 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { SPORTS, sportMeta } from '../dateUtils.js';
 import { useAuth } from '../context/AuthContext.jsx';
+
+const HISTORY_CHUNKS = [
+  { days: 90, label: '90 days' },
+  { days: 182, label: '6 months' },
+  { days: 365, label: '1 year' },
+];
+
+function formatImportedFrom(iso) {
+  if (!iso) return null;
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
 export function SettingsPage() {
   const { user, createCoachProfile, setWeekStart } = useAuth();
@@ -11,7 +26,9 @@ export function SettingsPage() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [importingDays, setImportingDays] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
+  const [historyResult, setHistoryResult] = useState(null);
   const [error, setError] = useState(null);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const [creatingCoachProfile, setCreatingCoachProfile] = useState(false);
@@ -48,9 +65,13 @@ export function SettingsPage() {
     setSyncing(true);
     setError(null);
     setSyncResult(null);
+    setHistoryResult(null);
     try {
       const data = await api.stravaSync();
       setSyncResult(data.synced);
+      if (data.importedFrom) {
+        setStatus((prev) => ({ ...prev, importedFrom: data.importedFrom }));
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -58,11 +79,29 @@ export function SettingsPage() {
     }
   }
 
+  async function handleImportHistory(days) {
+    setImportingDays(days);
+    setError(null);
+    setSyncResult(null);
+    setHistoryResult(null);
+    try {
+      const data = await api.stravaSync(days);
+      setHistoryResult(data);
+      setStatus((prev) => ({ ...prev, importedFrom: data.importedFrom }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImportingDays(null);
+    }
+  }
+
   async function handleDisconnect() {
     setConfirmingDisconnect(false);
     try {
       await api.stravaDisconnect();
-      setStatus({ connected: false, athleteId: null });
+      setStatus((prev) => ({ ...prev, connected: false, athleteId: null, importedFrom: null }));
+      setSyncResult(null);
+      setHistoryResult(null);
     } catch (err) {
       setError(err.message);
     }
@@ -139,6 +178,9 @@ export function SettingsPage() {
       {stravaParam === 'error' && (
         <p className="banner banner-error">Couldn't connect Strava. Please try again.</p>
       )}
+      {stravaParam === 'not_allowed' && (
+        <p className="banner banner-error">Strava connection isn't available for your account right now.</p>
+      )}
       {error && <p className="form-error">{error}</p>}
 
       <h2 className="settings-group-title">Preferences</h2>
@@ -174,8 +216,13 @@ export function SettingsPage() {
             <p className="settings-status">
               Connected — athlete ID <code>{status.athleteId}</code>
             </p>
+            {status.importedFrom && (
+              <p className="settings-status">
+                Imported from {formatImportedFrom(status.importedFrom)}.
+              </p>
+            )}
             <div className="settings-actions">
-              <button type="button" className="primary" onClick={handleSync} disabled={syncing}>
+              <button type="button" className="primary" onClick={handleSync} disabled={syncing || importingDays}>
                 {syncing ? 'Syncing…' : 'Sync now'}
               </button>
               <button type="button" className="danger" onClick={() => setConfirmingDisconnect(true)}>
@@ -187,8 +234,44 @@ export function SettingsPage() {
                 Synced {syncResult} {syncResult === 1 ? 'activity' : 'activities'}.
               </p>
             )}
+
+            <h4 className="settings-subhead">Older activities</h4>
+            <p className="settings-status">
+              Pull another stretch from before what you already have. Fitness on Progress is
+              rebuilt afterward.
+            </p>
+            <div className="view-toggle">
+              {HISTORY_CHUNKS.map((chunk) => (
+                <button
+                  type="button"
+                  key={chunk.days}
+                  onClick={() => handleImportHistory(chunk.days)}
+                  disabled={syncing || importingDays !== null}
+                >
+                  {importingDays === chunk.days ? 'Importing…' : chunk.label}
+                </button>
+              ))}
+            </div>
+            {historyResult && (
+              <p className="settings-status">
+                {historyResult.synced === 0 ? (
+                  <>
+                    No activities in that stretch.
+                    {historyResult.importedFrom
+                      ? ` Looking from ${formatImportedFrom(historyResult.importedFrom)} now.`
+                      : ''}
+                  </>
+                ) : (
+                  <>
+                    Imported {historyResult.synced}{' '}
+                    {historyResult.synced === 1 ? 'activity' : 'activities'}. Fitness trend
+                    updated — see <Link to="/progress">Progress</Link>.
+                  </>
+                )}
+              </p>
+            )}
           </>
-        ) : (
+        ) : status?.allowed ? (
           <>
             <p className="settings-status">
               Connect your Strava account to automatically pull in activities and see fitness trends.
@@ -197,6 +280,8 @@ export function SettingsPage() {
               Connect Strava
             </a>
           </>
+        ) : (
+          <p className="settings-status">Strava connection isn't available for your account right now.</p>
         )}
 
         <p className="strava-attribution">

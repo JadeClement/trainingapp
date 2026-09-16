@@ -5,11 +5,13 @@ import { TsbStrip } from '../components/TsbStrip.jsx';
 import { summarizeTrainingLoad, classifyState } from '../trainingLoadSummary.js';
 import { toISODate, addDays } from '../dateUtils.js';
 
-const FETCH_RANGE_DAYS = 90;
+const FETCH_RANGE_DAYS = 365;
 const RANGE_OPTIONS = [
   { label: '2 Weeks', days: 14 },
   { label: 'Month', days: 30 },
   { label: '3 Months', days: 90 },
+  { label: '6 Months', days: 182 },
+  { label: 'Year', days: 365 },
 ];
 
 // Matches CtlTrendChart / TsbStrip viewBox padding so the scrub index
@@ -54,6 +56,15 @@ export function FitnessPage({ athleteId }) {
   }, [rangeDays, athleteId]);
 
   const latest = data[data.length - 1];
+  const rangeOptions = useMemo(
+    () =>
+      RANGE_OPTIONS.filter((opt) => {
+        if (opt.days <= 90) return true;
+        if (opt.days <= 182) return data.length > 90;
+        return data.length > 182;
+      }),
+    [data.length]
+  );
   const trendData = useMemo(() => data.slice(-rangeDays), [data, rangeDays]);
   const lastIndex = Math.max(trendData.length - 1, 0);
   const activeIndex = scrubIndex == null ? lastIndex : clamp(scrubIndex, 0, lastIndex);
@@ -106,7 +117,7 @@ export function FitnessPage({ athleteId }) {
       {latest && (
         <div className="trend-view">
           <div className="range-selector">
-            {RANGE_OPTIONS.map((opt) => (
+            {rangeOptions.map((opt) => (
               <button
                 type="button"
                 key={opt.days}

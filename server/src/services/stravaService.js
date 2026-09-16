@@ -4,6 +4,19 @@ const AUTHORIZE_URL = 'https://www.strava.com/oauth/authorize';
 const TOKEN_URL = 'https://www.strava.com/oauth/token';
 const API_BASE = 'https://www.strava.com/api/v3';
 
+// Strava's per-app rate limit (200 req/15min, 2,000/day) is shared across
+// every user who has connected, so with a small user cap on the Strava app
+// itself, only emails on this list may connect their own account. Unset (or
+// empty) means no restriction, so local dev isn't gated by default.
+export function isStravaAllowed(email) {
+  const allowed = (process.env.STRAVA_ALLOWED_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (allowed.length === 0) return true;
+  return allowed.includes(String(email).trim().toLowerCase());
+}
+
 export function getAuthorizeUrl(state) {
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID,
@@ -67,15 +80,28 @@ export async function getValidAccessToken(user) {
   return tokens.access_token;
 }
 
-// Fetches activities after the given Date, following pagination.
-export async function fetchActivities(accessToken, after) {
+const ACTIVITIES_PER_PAGE = 100;
+const MAX_ACTIVITY_PAGES = 20;
+
+function epochSeconds(date) {
+  return String(Math.floor(date.getTime() / 1000));
+}
+
+// Forward sync passes `after` only (oldest-first from that timestamp).
+// History chunks pass both: newest-first from `before`, stop at `after`, so
+// the window fills backward without a gap against workouts already stored.
+export async function fetchActivities(accessToken, { after, before } = {}) {
   const activities = [];
   let page = 1;
-  const perPage = 100;
+  const stopAfterMs = after && before ? after.getTime() : null;
 
-  while (true) {
-    const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
-    if (after) params.set('after', String(Math.floor(after.getTime() / 1000)));
+  while (page <= MAX_ACTIVITY_PAGES) {
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: String(ACTIVITIES_PER_PAGE),
+    });
+    if (before) params.set('before', epochSeconds(before));
+    else if (after) params.set('after', epochSeconds(after));
 
     const res = await fetch(`${API_BASE}/athlete/activities?${params.toString()}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -87,9 +113,24 @@ export async function fetchActivities(accessToken, after) {
     }
 
     const batch = await res.json();
-    activities.push(...batch);
+    if (!Array.isArray(batch) || batch.length === 0) break;
 
-    if (batch.length < perPage) break;
+    if (stopAfterMs != null) {
+      let reachedFloor = false;
+      for (const activity of batch) {
+        const t = new Date(activity.start_date).getTime();
+        if (t <= stopAfterMs) {
+          reachedFloor = true;
+          break;
+        }
+        activities.push(activity);
+      }
+      if (reachedFloor) break;
+    } else {
+      activities.push(...batch);
+    }
+
+    if (batch.length < ACTIVITIES_PER_PAGE) break;
     page += 1;
   }
 

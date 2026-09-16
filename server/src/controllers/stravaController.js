@@ -6,17 +6,25 @@ import {
   exchangeCodeForToken,
   getValidAccessToken,
   fetchActivities,
+  isStravaAllowed,
 } from '../services/stravaService.js';
 import { mapStravaSportType, detailsWithPreservedPlan } from '../services/stravaMapping.js';
 import { estimateTss, recomputeTrainingLoad } from '../services/trainingLoad.js';
 
 const STATE_COOKIE = 'strava_oauth_state';
 const DEFAULT_SYNC_LOOKBACK_DAYS = 90;
+const LOOKBACK_DAYS = new Set([90, 182, 365]);
 
 // GET /api/strava/connect — reached via a full-page navigation (not fetch),
 // protected by requireAuth like any other route, since the JWT cookie is
 // sent on top-level same-site navigations just like on normal requests.
 export async function connect(req, res) {
+  const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+  const result = await pool.query('SELECT email FROM users WHERE id = $1', [req.userId]);
+  if (!isStravaAllowed(result.rows[0]?.email)) {
+    return res.redirect(`${clientOrigin}/settings?strava=not_allowed`);
+  }
+
   const state = crypto.randomBytes(16).toString('hex');
   res.cookie(STATE_COOKIE, state, {
     httpOnly: true,
@@ -69,26 +77,42 @@ export async function callback(req, res) {
   }
 }
 
-// GET /api/strava/status
-export async function status(req, res) {
-  const result = await pool.query(
-    'SELECT strava_athlete_id FROM users WHERE id = $1',
-    [req.userId]
-  );
-  const user = result.rows[0];
-  res.json({ connected: Boolean(user?.strava_athlete_id), athleteId: user?.strava_athlete_id || null });
+function dateToISO(value) {
+  if (!value) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+  return value.toISOString().slice(0, 10);
 }
 
-// DELETE /api/strava/disconnect
-export async function disconnect(req, res) {
-  await pool.query(
-    `UPDATE users SET
-       strava_athlete_id = NULL, strava_access_token = NULL,
-       strava_refresh_token = NULL, strava_token_expires_at = NULL
-     WHERE id = $1`,
-    [req.userId]
+function utcDate(iso) {
+  return new Date(`${iso}T00:00:00Z`);
+}
+
+function addUtcDays(iso, days) {
+  const d = utcDate(iso);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function todayUTC() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function oldestSyncedDate(userId) {
+  const result = await pool.query(
+    `SELECT MIN(scheduled_date) AS date FROM workouts WHERE user_id = $1 AND source = 'strava_synced'`,
+    [userId]
   );
-  res.status(204).end();
+  return dateToISO(result.rows[0]?.date);
+}
+
+async function historyCursor(user) {
+  const stored = dateToISO(user.strava_history_after);
+  if (stored) return stored;
+  return (await oldestSyncedDate(user.id)) || todayUTC();
+}
+
+async function setHistoryAfter(userId, isoDate) {
+  await pool.query('UPDATE users SET strava_history_after = $1 WHERE id = $2', [isoDate, userId]);
 }
 
 function metersToDistanceLabel(sport, meters) {
@@ -97,27 +121,7 @@ function metersToDistanceLabel(sport, meters) {
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-// POST /api/strava/sync
-export async function sync(req, res) {
-  const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.userId]);
-  const user = result.rows[0];
-
-  if (!user.strava_refresh_token) {
-    return res.status(400).json({ error: 'Strava is not connected' });
-  }
-
-  const accessToken = await getValidAccessToken(user);
-
-  const latest = await pool.query(
-    `SELECT MAX(scheduled_date) AS date FROM workouts WHERE user_id = $1 AND source = 'strava_synced'`,
-    [req.userId]
-  );
-  const after =
-    latest.rows[0].date ||
-    new Date(Date.now() - DEFAULT_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-
-  const activities = await fetchActivities(accessToken, new Date(after));
-
+async function importActivities(userId, activities) {
   for (const activity of activities) {
     const { sport, activityType } = mapStravaSportType(activity.sport_type || activity.type);
     const tss = estimateTss(activity);
@@ -148,7 +152,7 @@ export async function sync(req, res) {
         `SELECT id, details FROM workouts
          WHERE user_id = $1 AND source = 'manual' AND strava_activity_id IS NULL
            AND sport = $2 AND scheduled_date BETWEEN $3::date - INTERVAL '1 day' AND $3::date + INTERVAL '1 day'`,
-        [req.userId, sport, scheduledDate]
+        [userId, sport, scheduledDate]
       );
 
       if (candidates.rows.length === 1) {
@@ -181,7 +185,7 @@ export async function sync(req, res) {
          actual_duration_seconds = EXCLUDED.actual_duration_seconds, details = EXCLUDED.details,
          updated_at = now()`,
       [
-        req.userId,
+        userId,
         sport,
         activity.name || activityType,
         scheduledDate,
@@ -191,8 +195,98 @@ export async function sync(req, res) {
       ]
     );
   }
+}
+
+function parseLookbackDays(value) {
+  const n = Number(value);
+  return LOOKBACK_DAYS.has(n) ? n : null;
+}
+
+// GET /api/strava/status
+export async function status(req, res) {
+  const result = await pool.query(
+    'SELECT email, strava_athlete_id, strava_history_after FROM users WHERE id = $1',
+    [req.userId]
+  );
+  const user = result.rows[0];
+  const importedFrom = dateToISO(user?.strava_history_after) || (await oldestSyncedDate(req.userId));
+  res.json({
+    connected: Boolean(user?.strava_athlete_id),
+    athleteId: user?.strava_athlete_id || null,
+    allowed: isStravaAllowed(user?.email),
+    importedFrom,
+  });
+}
+
+// DELETE /api/strava/disconnect
+export async function disconnect(req, res) {
+  await pool.query(
+    `UPDATE users SET
+       strava_athlete_id = NULL, strava_access_token = NULL,
+       strava_refresh_token = NULL, strava_token_expires_at = NULL,
+       strava_history_after = NULL
+     WHERE id = $1`,
+    [req.userId]
+  );
+  res.status(204).end();
+}
+
+// POST /api/strava/sync  body: { lookbackDays?: 90 | 182 | 365 }
+// Without lookbackDays this is the forward catch-up (new activities since
+// the latest synced workout). With it, pull a chunk *before* the current
+// history cursor, then rebuild CTL so Progress reflects the older TSS.
+export async function sync(req, res) {
+  const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.userId]);
+  const user = result.rows[0];
+
+  if (!user.strava_refresh_token) {
+    return res.status(400).json({ error: 'Strava is not connected' });
+  }
+
+  const lookbackDays = parseLookbackDays(req.body?.lookbackDays);
+  const accessToken = await getValidAccessToken(user);
+
+  if (lookbackDays) {
+    const cursor = await historyCursor(user);
+    const afterISO = addUtcDays(cursor, -lookbackDays);
+    const activities = await fetchActivities(accessToken, {
+      after: utcDate(afterISO),
+      before: utcDate(cursor),
+    });
+
+    await importActivities(req.userId, activities);
+
+    const oldestFetched = activities.reduce((min, activity) => {
+      const iso = (activity.start_date_local || activity.start_date).slice(0, 10);
+      return !min || iso < min ? iso : min;
+    }, null);
+    const importedFrom = !oldestFetched || oldestFetched <= afterISO ? afterISO : oldestFetched;
+    await setHistoryAfter(req.userId, importedFrom);
+    await recomputeTrainingLoad(req.userId);
+
+    return res.json({ synced: activities.length, importedFrom, lookbackDays });
+  }
+
+  const latest = await pool.query(
+    `SELECT MAX(scheduled_date) AS date FROM workouts WHERE user_id = $1 AND source = 'strava_synced'`,
+    [req.userId]
+  );
+  const after =
+    latest.rows[0].date ||
+    new Date(Date.now() - DEFAULT_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+
+  const activities = await fetchActivities(accessToken, { after: new Date(after) });
+  await importActivities(req.userId, activities);
+
+  let importedFrom = dateToISO(user.strava_history_after);
+  if (!importedFrom && !latest.rows[0].date) {
+    importedFrom = dateToISO(after);
+    await setHistoryAfter(req.userId, importedFrom);
+  } else if (!importedFrom) {
+    importedFrom = await oldestSyncedDate(req.userId);
+    if (importedFrom) await setHistoryAfter(req.userId, importedFrom);
+  }
 
   await recomputeTrainingLoad(req.userId);
-
-  res.json({ synced: activities.length });
+  res.json({ synced: activities.length, importedFrom });
 }

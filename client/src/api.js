@@ -63,7 +63,11 @@ export const api = {
     request(`/workouts/${workoutId}/comments/${commentId}`, { method: 'DELETE' }),
 
   stravaStatus: () => request('/strava/status'),
-  stravaSync: () => request('/strava/sync', { method: 'POST' }),
+  stravaSync: (lookbackDays) =>
+    request('/strava/sync', {
+      method: 'POST',
+      body: JSON.stringify(lookbackDays ? { lookbackDays } : {}),
+    }),
   stravaDisconnect: () => request('/strava/disconnect', { method: 'DELETE' }),
 
   getStats: (period, date, athleteId, days) => {
