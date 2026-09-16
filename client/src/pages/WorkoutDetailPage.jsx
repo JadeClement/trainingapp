@@ -95,8 +95,8 @@ export function WorkoutDetailPage() {
     <div className="workout-detail-page">
       <div className="workout-detail-header">
         <div className="workout-detail-heading">
-          <Link to="/" className="link-button workout-detail-back">
-            ← Calendar
+          <Link to="/plan" className="link-button workout-detail-back">
+            ← Plan
           </Link>
           <h1>{workout.title}</h1>
           <p className="workout-authorship">

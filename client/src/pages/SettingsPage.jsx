@@ -144,7 +144,7 @@ export function SettingsPage() {
       <h2 className="settings-group-title">Preferences</h2>
       <section className="settings-card">
         <h3>Week starts on</h3>
-        <p className="settings-status">Used by the calendar and weekly stats.</p>
+        <p className="settings-status">Used by Plan and weekly stats.</p>
         <div className="view-toggle">
           <button
             type="button"

@@ -139,7 +139,7 @@ export function WorkoutFormPage() {
     setSaving(true);
     try {
       await api.deleteWorkout(id);
-      navigate('/');
+      navigate('/plan');
     } catch (err) {
       setError(err.message);
       setSaving(false);
@@ -293,7 +293,7 @@ export function WorkoutFormPage() {
             type="button"
             onClick={() => {
               if (window.history.state?.idx > 0) navigate(-1);
-              else navigate('/');
+              else navigate('/plan');
             }}
             disabled={saving}
           >

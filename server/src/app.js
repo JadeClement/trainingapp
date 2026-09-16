@@ -11,6 +11,7 @@ import friendsRoutes from './routes/friendsRoutes.js';
 import heartRateZonesRoutes from './routes/heartRateZonesRoutes.js';
 import coachRoutes from './routes/coachRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
+import racesRoutes from './routes/racesRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +38,7 @@ app.use('/api/friends', friendsRoutes);
 app.use('/api/heart-rate-zones', heartRateZonesRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/races', racesRoutes);
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(clientDist));

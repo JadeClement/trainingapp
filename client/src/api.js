@@ -75,6 +75,30 @@ export const api = {
     return request(`/stats?${params}`);
   },
 
+  listRaces: (athleteId) => {
+    const params = new URLSearchParams();
+    if (athleteId) params.set('athleteId', athleteId);
+    const qs = params.toString();
+    return request(`/races${qs ? `?${qs}` : ''}`);
+  },
+  createRace: (body, athleteId) =>
+    request('/races', { method: 'POST', body: JSON.stringify(athleteId ? { ...body, athleteId } : body) }),
+  updateRace: (id, body, athleteId) => {
+    const params = new URLSearchParams();
+    if (athleteId) params.set('athleteId', athleteId);
+    const qs = params.toString();
+    return request(`/races/${id}${qs ? `?${qs}` : ''}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  },
+  deleteRace: (id, athleteId) => {
+    const params = new URLSearchParams();
+    if (athleteId) params.set('athleteId', athleteId);
+    const qs = params.toString();
+    return request(`/races/${id}${qs ? `?${qs}` : ''}`, { method: 'DELETE' });
+  },
+
   listTrainingLoad: (start, end, athleteId) => {
     const params = new URLSearchParams();
     if (start) params.set('start', start);

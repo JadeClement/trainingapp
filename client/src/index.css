@@ -2316,3 +2316,195 @@ button.danger {
   color: var(--text-h);
   resize: vertical;
 }
+
+/* Home page */
+
+.home-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.home-hero h1 {
+  margin-bottom: 12px;
+}
+
+.home-kicker {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.home-week-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--border);
+}
+
+.home-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 72px;
+}
+
+.home-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.home-metric-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.home-metric-hours .home-metric-value {
+  font-size: 16px;
+}
+
+.home-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.home-section-header .trend-section-title {
+  margin: 0;
+}
+
+.home-countdown {
+  padding: 20px 0 8px;
+  border-top: 1px solid var(--border);
+}
+
+.home-countdown-days {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 42px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--first-light);
+}
+
+.home-countdown-name {
+  margin: 8px 0 4px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--text-h);
+}
+
+.home-countdown-meta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.home-race-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+}
+
+.home-race-form h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--text-h);
+}
+
+.home-race-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.home-race-form input,
+.home-race-form select,
+.home-race-form textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.home-race-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-race-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.home-race-list li.is-past {
+  opacity: 0.65;
+}
+
+.home-race-list-main {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.home-race-priority {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--open-water) 18%, transparent);
+  color: var(--open-water);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.home-race-list-name {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.home-race-list-meta {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.home-race-list-actions {
+  display: flex;
+  gap: 10px;
+  flex: none;
+}
+

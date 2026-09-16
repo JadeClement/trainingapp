@@ -11,12 +11,19 @@ import { WorkoutDetailPage } from './pages/WorkoutDetailPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.jsx';
 import { ProgressPage } from './pages/ProgressPage.jsx';
 import { PeoplePage } from './pages/PeoplePage.jsx';
+import { HomePage } from './pages/HomePage.jsx';
 import { CoachHomePage } from './pages/CoachHomePage.jsx';
+import { CoachPlanPage } from './pages/CoachPlanPage.jsx';
 import { CoachProgressPage } from './pages/CoachProgressPage.jsx';
 
 function HomeRoute() {
   const { user } = useAuth();
-  return user?.activeMode === 'coach' ? <CoachHomePage /> : <CalendarPage />;
+  return user?.activeMode === 'coach' ? <CoachHomePage /> : <HomePage />;
+}
+
+function PlanRoute() {
+  const { user } = useAuth();
+  return user?.activeMode === 'coach' ? <CoachPlanPage /> : <CalendarPage />;
 }
 
 function ProgressRoute() {
@@ -37,6 +44,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <HomeRoute />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/plan"
+            element={
+              <ProtectedRoute>
+                <PlanRoute />
               </ProtectedRoute>
             }
           />

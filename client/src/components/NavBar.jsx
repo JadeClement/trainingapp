@@ -13,6 +13,9 @@ export function NavBar() {
       </NavLink>
       {user && (
         <nav className="navbar-links">
+          <NavLink to="/plan" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Plan
+          </NavLink>
           <NavLink to="/progress" className={({ isActive }) => (isActive ? 'active' : '')}>
             Progress
           </NavLink>
