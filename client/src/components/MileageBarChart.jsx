@@ -5,10 +5,12 @@ import { useSportMeta } from '../context/AuthContext.jsx';
 import { ValueAxis, axisTicks } from './ValueAxis.jsx';
 
 const WIDTH = 600;
-const HEIGHT = 160;
+const HEIGHT = 176;
 const PADDING_X = 16;
-const PADDING_Y = 12;
+const PADDING_TOP = 22;
+const PADDING_BOTTOM = 12;
 const MIN_TICK_GAP_PCT = 8;
+const LABEL_MIN_BAR_WIDTH = 14;
 
 const GRAIN_LABEL = {
   day: 'by day',
@@ -28,6 +30,11 @@ function toChartValue(meters) {
 
 function formatMileage(sport, meters) {
   return formatDistanceMeters(sport, meters) || (formatSportForDistance(sport) === 'swim' ? '0.000km' : '0km');
+}
+
+function formatBarLabel(sport, meters) {
+  if (!meters) return null;
+  return formatMileage(sport, meters).replace(/km$/i, '');
 }
 
 function formatBucketLabel(grain, start, bucketCount) {
@@ -121,12 +128,13 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
   const scaleMax = Math.max(domainMax, ticks[ticks.length - 1] || domainMax);
 
   const innerWidth = WIDTH - PADDING_X * 2;
-  const innerHeight = HEIGHT - PADDING_Y * 2;
+  const innerHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
   const slot = data.length ? innerWidth / data.length : innerWidth;
   const barWidth = Math.max(Math.min(slot * 0.62, 36), 2);
+  const showBarLabels = barWidth >= LABEL_MIN_BAR_WIDTH;
   const xCenter = (i) => PADDING_X + i * slot + slot / 2;
   const xPct = (i) => (xCenter(i) / WIDTH) * 100;
-  const yScale = (v) => HEIGHT - PADDING_Y - (v / (scaleMax || 1)) * innerHeight;
+  const yScale = (v) => HEIGHT - PADDING_BOTTOM - (v / (scaleMax || 1)) * innerHeight;
   const yPct = (v) => (yScale(v) / HEIGHT) * 100;
   const axisTicksForPlot = categoryTicks(data, xPct);
 
@@ -204,6 +212,20 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
               );
             })}
           </svg>
+          {showBarLabels &&
+            data.map((d, i) => {
+              if (d.value <= 0) return null;
+              const isActive = i === activeIndex;
+              return (
+                <span
+                  key={`label-${d.start}-${i}`}
+                  className={`mileage-bar-label${d.isFocus || isActive ? ' is-emphasis' : ''}`}
+                  style={{ left: `${xPct(i)}%`, top: `${yPct(d.value)}%` }}
+                >
+                  {formatBarLabel(sport, d.meters)}
+                </span>
+              );
+            })}
           {activeIndex != null && (
             <span className="fitness-chart-cursor" style={{ left: `${xPct(activeIndex)}%` }} />
           )}

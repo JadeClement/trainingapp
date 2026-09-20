@@ -2200,6 +2200,25 @@ button.danger {
 
 .mileage-chart .chart-plot {
   cursor: crosshair;
+  position: relative;
+}
+
+.mileage-bar-label {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 2px));
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text);
+  opacity: 0.75;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.mileage-bar-label.is-emphasis {
+  color: var(--text-h);
+  opacity: 1;
 }
 
 .mileage-chart-readout {
