@@ -26,6 +26,18 @@ export function axisTicks(min, max, targetCount = 4) {
   for (let v = start; v <= max + step * 1e-9; v += step) {
     ticks.push(Number(v.toPrecision(10)));
   }
+
+  // Nice steps can jump from 0 straight to a large top (e.g. 0, 200). Always
+  // keep at least one label between the ends so the axis isn't empty.
+  if (ticks.length >= 2) {
+    const lo = ticks[0];
+    const hi = ticks[ticks.length - 1];
+    const hasInterior = ticks.some((t) => t > lo && t < hi);
+    if (!hasInterior && hi > lo) {
+      ticks.splice(1, 0, Number(((lo + hi) / 2).toPrecision(10)));
+    }
+  }
+
   return ticks;
 }
 
