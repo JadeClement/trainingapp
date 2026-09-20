@@ -52,9 +52,24 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }, []);
 
+  const resetPassword = useCallback(async (token, password, confirmPassword) => {
+    const data = await api.resetPassword({ token, password, confirmPassword });
+    setUser(data.user);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, signup, logout, createCoachProfile, setAccountMode, setWeekStart }}
+      value={{
+        user,
+        loading,
+        login,
+        signup,
+        logout,
+        createCoachProfile,
+        setAccountMode,
+        setWeekStart,
+        resetPassword,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -23,6 +23,12 @@ export const api = {
   login: (body) => request('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
+  forgotPassword: (email) =>
+    request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  validateResetToken: (token) =>
+    request(`/auth/reset-password?token=${encodeURIComponent(token)}`),
+  resetPassword: (body) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify(body) }),
 
   listWorkouts: (start, end, athleteId) => {
     const params = new URLSearchParams();
