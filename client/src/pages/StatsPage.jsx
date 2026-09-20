@@ -242,6 +242,8 @@ export function StatsPage({ athleteId }) {
             ) : (
               formatRangeLabel(stats.period, stats.start, stats.end)
             )}
+            <span aria-hidden="true">·</span>
+            <span>{formatDurationSeconds(stats.totals.durationSeconds)}</span>
           </h2>
 
           {stats.sports.length === 0 ? (
