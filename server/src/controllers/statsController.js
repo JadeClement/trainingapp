@@ -3,7 +3,7 @@ import {
   DEFAULT_FEATURED_SPORTS,
   displayKeyForWorkout,
   formatSportForDistance,
-  pinKey,
+  seriesKeysForPrefs,
 } from '../services/activityTypes.js';
 
 const SPORTS = ['swim', 'bike', 'run', 'strength', 'other'];
@@ -229,8 +229,7 @@ export async function getStats(req, res) {
     ? athletePref.rows[0].featured_sports
     : [...DEFAULT_FEATURED_SPORTS];
   const pinnedActivityTypes = athletePref.rows[0]?.pinned_activity_types ?? [];
-  const seriesKeys = [...featuredSports, ...pinnedActivityTypes.map((type) => pinKey(type))];
-  if (!seriesKeys.includes('other')) seriesKeys.push('other');
+  const seriesKeys = seriesKeysForPrefs(featuredSports, pinnedActivityTypes);
 
   const { start, end } = periodBounds(period, anchor, weekStartsOn, days);
   const grain = seriesGrain(period, days);

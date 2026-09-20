@@ -59,7 +59,8 @@ export const ACTIVITY_CATEGORIES = [
 
 export const FEATURED_SPORT_OPTIONS = ['swim', 'bike', 'run', 'strength', 'other'];
 export const DEFAULT_FEATURED_SPORTS = ['swim', 'bike', 'run'];
-export const MAX_PINNED_ACTIVITY_TYPES = 5;
+export const MAX_FEATURED_SPORTS = 20;
+export const MAX_PINNED_ACTIVITY_TYPES = 10;
 export const PIN_PREFIX = 'pin:';
 
 const ACTIVITY_TYPE_SPORT = new Map();
@@ -91,17 +92,23 @@ export function formatSportForDistance(displayKey) {
   return 'other';
 }
 
+function isFeaturedValue(value) {
+  return FEATURED_SPORT_OPTIONS.includes(value) || ACTIVITY_TYPE_SPORT.has(value);
+}
+
 export function normalizeFeaturedSports(input) {
   if (!Array.isArray(input)) return null;
   const seen = new Set();
-  const normalized = [];
   for (const value of input) {
-    if (!FEATURED_SPORT_OPTIONS.includes(value) || seen.has(value)) continue;
+    if (!isFeaturedValue(value) || seen.has(value)) continue;
     seen.add(value);
-    normalized.push(value);
   }
-  if (normalized.length === 0) return null;
-  return FEATURED_SPORT_OPTIONS.filter((sport) => seen.has(sport));
+  if (seen.size === 0) return null;
+  if (seen.size > MAX_FEATURED_SPORTS) return null;
+  return [
+    ...FEATURED_SPORT_OPTIONS.filter((sport) => seen.has(sport)),
+    ...ALLOWED_ACTIVITY_TYPES.filter((type) => seen.has(type)),
+  ];
 }
 
 export function normalizePinnedActivityTypes(input) {
@@ -125,16 +132,24 @@ function isAllowedColorKey(key) {
   return Boolean(pinned && ACTIVITY_TYPE_SPORT.has(pinned));
 }
 
+function colorKeysForPrefs(featuredSports, pinnedActivityTypes) {
+  const keys = new Set(FEATURED_SPORT_OPTIONS);
+  for (const value of featuredSports) {
+    if (ACTIVITY_TYPE_SPORT.has(value)) keys.add(pinKey(value));
+  }
+  for (const type of pinnedActivityTypes) {
+    keys.add(pinKey(type));
+  }
+  return keys;
+}
+
 // Returns a cleaned map, or null if the payload is invalid. Keeps colors for
-// the five base sports plus currently pinned activity types.
-export function normalizeSportColors(input, _featuredSports, pinnedActivityTypes) {
+// the five base sports plus featured/pinned activity types.
+export function normalizeSportColors(input, featuredSports, pinnedActivityTypes) {
   if (input == null) return {};
   if (typeof input !== 'object' || Array.isArray(input)) return null;
 
-  const allowedKeys = new Set([
-    ...FEATURED_SPORT_OPTIONS,
-    ...pinnedActivityTypes.map((type) => pinKey(type)),
-  ]);
+  const allowedKeys = colorKeysForPrefs(featuredSports, pinnedActivityTypes);
   const normalized = {};
   for (const [key, value] of Object.entries(input)) {
     if (!isAllowedColorKey(key) || !allowedKeys.has(key)) continue;
@@ -147,6 +162,26 @@ export function normalizeSportColors(input, _featuredSports, pinnedActivityTypes
 export function displayKeyForWorkout(row, featuredSports, pinnedActivityTypes) {
   const type = row.details?.activityType;
   if (type && pinnedActivityTypes.includes(type)) return pinKey(type);
+  if (type && featuredSports.includes(type)) return pinKey(type);
   if (featuredSports.includes(row.sport)) return row.sport;
   return 'other';
+}
+
+export function seriesKeysForPrefs(featuredSports, pinnedActivityTypes) {
+  const keys = [];
+  const seen = new Set();
+  for (const value of featuredSports) {
+    const key = ACTIVITY_TYPE_SPORT.has(value) ? pinKey(value) : value;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  for (const type of pinnedActivityTypes) {
+    const key = pinKey(type);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  if (!seen.has('other')) keys.push('other');
+  return keys;
 }

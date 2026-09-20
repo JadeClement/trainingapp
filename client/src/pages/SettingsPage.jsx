@@ -6,6 +6,8 @@ import { SPORTS, sportMeta as defaultSportMeta } from '../dateUtils.js';
 import {
   ACTIVITY_CATEGORIES,
   DEFAULT_FEATURED_SPORTS,
+  FEATURED_SPORT_OPTIONS,
+  MAX_FEATURED_SPORTS,
   MAX_PINNED_ACTIVITY_TYPES,
   PIN_PREFIX,
   pinMeta,
@@ -154,13 +156,21 @@ export function SettingsPage() {
     setSportColors(user?.sportColors ?? {});
   }, [user?.featuredSports, user?.pinnedActivityTypes, user?.sportColors]);
 
-  function toggleFeaturedSport(sport) {
+  function toggleFeatured(value) {
     setFeaturedSports((prev) => {
-      if (prev.includes(sport)) {
+      if (prev.includes(value)) {
         if (prev.length === 1) return prev;
-        return prev.filter((s) => s !== sport);
+        return prev.filter((v) => v !== value);
       }
-      return SPORTS.map((s) => s.value).filter((value) => value === sport || prev.includes(value));
+      if (prev.length >= MAX_FEATURED_SPORTS) return prev;
+      if (!FEATURED_SPORT_OPTIONS.includes(value)) {
+        const key = `${PIN_PREFIX}${value}`;
+        setSportColors((colors) => ({
+          ...colors,
+          [key]: colors[key] || pinMeta(value).color,
+        }));
+      }
+      return [...prev, value];
     });
   }
 
@@ -169,6 +179,7 @@ export function SettingsPage() {
     setPinnedActivityTypes((prev) => {
       if (prev.includes(type)) {
         setSportColors((colors) => {
+          if (featuredSports.includes(type)) return colors;
           const next = { ...colors };
           delete next[key];
           return next;
@@ -200,6 +211,11 @@ export function SettingsPage() {
       const colorsPayload = { ...sportColors };
       for (const s of SPORTS) {
         if (!colorsPayload[s.value]) colorsPayload[s.value] = colorFor(s.value);
+      }
+      for (const value of featuredSports) {
+        if (FEATURED_SPORT_OPTIONS.includes(value)) continue;
+        const key = `${PIN_PREFIX}${value}`;
+        if (!colorsPayload[key]) colorsPayload[key] = colorFor(key);
       }
       for (const type of pinnedActivityTypes) {
         const key = `${PIN_PREFIX}${type}`;
@@ -298,23 +314,58 @@ export function SettingsPage() {
       <section className="settings-card">
         <h3>Stats sports</h3>
         <p className="settings-status">
-          Featured sports stay as their own rows on Stats. Everything else rolls into Other,
-          unless you pin a specific activity type.
+          Featured sports and activity types stay as their own rows on Stats (max{' '}
+          {MAX_FEATURED_SPORTS}). Everything else rolls into Other, unless you pin a
+          specific activity type.
         </p>
 
-        <p className="settings-subhead">Featured</p>
+        <p className="settings-subhead">
+          Featured
+          <span className="settings-status">
+            {' '}
+            ({featuredSports.length}/{MAX_FEATURED_SPORTS})
+          </span>
+        </p>
         <div className="sport-prefs-featured">
-          {SPORTS.map((s) => (
-            <label key={s.value} className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={featuredSports.includes(s.value)}
-                onChange={() => toggleFeaturedSport(s.value)}
-                disabled={savingSportPrefs}
-              />
-              <span className="sport-dot" style={{ backgroundColor: colorFor(s.value) }} />
-              {s.label}
-            </label>
+          {SPORTS.map((s) => {
+            const checked = featuredSports.includes(s.value);
+            const atCap = !checked && featuredSports.length >= MAX_FEATURED_SPORTS;
+            return (
+              <label key={s.value} className={`checkbox-label${atCap ? ' is-disabled' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleFeatured(s.value)}
+                  disabled={savingSportPrefs || atCap}
+                />
+                <span className="sport-dot" style={{ backgroundColor: colorFor(s.value) }} />
+                {s.label}
+              </label>
+            );
+          })}
+        </div>
+        <div className="sport-prefs-pins sport-prefs-featured-types">
+          {ACTIVITY_CATEGORIES.map((category) => (
+            <div key={category.name} className="sport-prefs-pin-group">
+              <p className="sport-prefs-pin-group-title">{category.name}</p>
+              <div className="sport-prefs-pin-types">
+                {category.types.map((type) => {
+                  const checked = featuredSports.includes(type);
+                  const atCap = !checked && featuredSports.length >= MAX_FEATURED_SPORTS;
+                  return (
+                    <label key={type} className={`checkbox-label${atCap ? ' is-disabled' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleFeatured(type)}
+                        disabled={savingSportPrefs || atCap}
+                      />
+                      {type}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
 
@@ -333,22 +384,27 @@ export function SettingsPage() {
               />
             </label>
           ))}
-          {pinnedActivityTypes.map((type) => {
-            const key = `${PIN_PREFIX}${type}`;
-            return (
-              <label key={key} className="sport-color-row">
-                <span className="sport-dot" style={{ backgroundColor: colorFor(key) }} />
-                <span className="sport-color-label">{type}</span>
-                <input
-                  type="color"
-                  value={colorFor(key)}
-                  onChange={(e) => setSportColor(key, e.target.value)}
-                  disabled={savingSportPrefs}
-                  aria-label={`${type} color`}
-                />
-              </label>
-            );
-          })}
+          {[
+            ...featuredSports.filter((v) => !FEATURED_SPORT_OPTIONS.includes(v)),
+            ...pinnedActivityTypes,
+          ]
+            .filter((type, i, arr) => arr.indexOf(type) === i)
+            .map((type) => {
+              const key = `${PIN_PREFIX}${type}`;
+              return (
+                <label key={key} className="sport-color-row">
+                  <span className="sport-dot" style={{ backgroundColor: colorFor(key) }} />
+                  <span className="sport-color-label">{type}</span>
+                  <input
+                    type="color"
+                    value={colorFor(key)}
+                    onChange={(e) => setSportColor(key, e.target.value)}
+                    disabled={savingSportPrefs}
+                    aria-label={`${type} color`}
+                  />
+                </label>
+              );
+            })}
         </div>
 
         <p className="settings-subhead">
@@ -357,6 +413,9 @@ export function SettingsPage() {
             {' '}
             ({pinnedActivityTypes.length}/{MAX_PINNED_ACTIVITY_TYPES})
           </span>
+        </p>
+        <p className="settings-status">
+          Split a type out even when its parent sport is featured (e.g. Trail Run under Run).
         </p>
         <div className="sport-prefs-pins">
           {ACTIVITY_CATEGORIES.map((category) => (

@@ -60,9 +60,11 @@ export const ACTIVITY_CATEGORIES = [
   },
 ];
 
-export const MAX_PINNED_ACTIVITY_TYPES = 5;
+export const MAX_FEATURED_SPORTS = 20;
+export const MAX_PINNED_ACTIVITY_TYPES = 10;
 export const PIN_PREFIX = 'pin:';
 export const DEFAULT_FEATURED_SPORTS = ['swim', 'bike', 'run'];
+export const FEATURED_SPORT_OPTIONS = ['swim', 'bike', 'run', 'strength', 'other'];
 
 const ACTIVITY_TYPE_SPORT = new Map();
 for (const category of ACTIVITY_CATEGORIES) {

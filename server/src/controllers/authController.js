@@ -5,6 +5,7 @@ import pool from '../db/pool.js';
 import { loadPublicUser } from '../services/userView.js';
 import { sendMail } from '../services/mail.js';
 import {
+  MAX_FEATURED_SPORTS,
   MAX_PINNED_ACTIVITY_TYPES,
   normalizeFeaturedSports,
   normalizePinnedActivityTypes,
@@ -141,7 +142,7 @@ export async function setSportPrefs(req, res) {
   const pinnedActivityTypes = normalizePinnedActivityTypes(req.body.pinnedActivityTypes);
   if (!featuredSports) {
     return res.status(400).json({
-      error: 'featuredSports must be a non-empty subset of swim, bike, run, strength, other',
+      error: `featuredSports must be 1–${MAX_FEATURED_SPORTS} sports or activity types`,
     });
   }
   if (!pinnedActivityTypes) {

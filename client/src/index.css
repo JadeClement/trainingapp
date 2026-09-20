@@ -1234,7 +1234,8 @@ button.danger {
   gap: 8px 14px;
 }
 
-.sport-prefs-pin-types .checkbox-label.is-disabled {
+.sport-prefs-pin-types .checkbox-label.is-disabled,
+.sport-prefs-featured .checkbox-label.is-disabled {
   opacity: 0.45;
 }
 
