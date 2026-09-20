@@ -239,6 +239,8 @@ export async function forgotPassword(req, res) {
   );
 
   const resetUrl = `${appOrigin()}/reset-password?token=${encodeURIComponent(rawToken)}`;
+  // Temporary: log the link so password reset works without SMTP while solo-testing.
+  console.log(`[password-reset] ${user.email} → ${resetUrl}`);
   const { text, html } = resetEmailCopy(user.display_name, resetUrl);
 
   try {
