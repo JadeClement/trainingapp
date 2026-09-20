@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatDistanceMeters } from '../dateUtils.js';
+import { formatDistanceMeters, formatDurationSeconds } from '../dateUtils.js';
 import { formatSportForDistance } from '../activityTypes.js';
 import { useSportMeta } from '../context/AuthContext.jsx';
 import { ValueAxis, niceDomain } from './ValueAxis.jsx';
@@ -19,22 +19,61 @@ const GRAIN_LABEL = {
   year: 'by year',
 };
 
+const METRICS = [
+  { value: 'distance', label: 'Mileage' },
+  { value: 'duration', label: 'Hours' },
+  { value: 'workouts', label: 'Workouts' },
+];
+
 function clamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
 }
 
-function toChartValue(meters) {
-  if (!meters) return 0;
-  return meters / 1000;
-}
-
-function formatMileage(sport, meters) {
-  return formatDistanceMeters(sport, meters) || (formatSportForDistance(sport) === 'swim' ? '0.000km' : '0km');
-}
-
-function formatBarLabel(sport, meters) {
+function formatDistanceLabel(sport, meters) {
   if (!meters) return null;
-  return formatMileage(sport, meters).replace(/km$/i, '');
+  const formatted =
+    formatDistanceMeters(sport, meters) ||
+    (formatSportForDistance(sport) === 'swim' ? '0.000km' : '0km');
+  return formatted.replace(/km$/i, '');
+}
+
+function formatHoursLabel(seconds) {
+  if (!seconds) return null;
+  return formatDurationSeconds(seconds);
+}
+
+function formatWorkoutsLabel(count) {
+  if (!count) return null;
+  return String(count);
+}
+
+function bucketMetric(bucket, sport, metric) {
+  if (metric === 'duration') {
+    const seconds = bucket.durations?.[sport] || 0;
+    return { raw: seconds, value: seconds / 3600, label: formatHoursLabel(seconds) };
+  }
+  if (metric === 'workouts') {
+    const count = bucket.workoutCounts?.[sport] || 0;
+    return { raw: count, value: count, label: formatWorkoutsLabel(count) };
+  }
+  const meters = bucket.distances?.[sport] || 0;
+  return {
+    raw: meters,
+    value: meters / 1000,
+    label: formatDistanceLabel(sport, meters),
+  };
+}
+
+function metricTitle(metric, sportLabel, grainLabel) {
+  if (metric === 'duration') return `${sportLabel} hours ${grainLabel}`;
+  if (metric === 'workouts') return `${sportLabel} workouts ${grainLabel}`;
+  return `${sportLabel} mileage ${grainLabel} (km)`;
+}
+
+function emptyNote(metric, sportLabel) {
+  if (metric === 'duration') return `No time logged for ${sportLabel} in this period.`;
+  if (metric === 'workouts') return `No workouts logged for ${sportLabel} in this period.`;
+  return `No distance logged for ${sportLabel} in this period.`;
 }
 
 function formatBucketLabel(grain, start, bucketCount) {
@@ -44,20 +83,6 @@ function formatBucketLabel(grain, start, bucketCount) {
   if (grain === 'week') return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   if (bucketCount > 7) return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   return d.toLocaleDateString(undefined, { weekday: 'short' });
-}
-
-function formatReadoutDate(grain, start, end) {
-  const startDate = new Date(`${start}T00:00:00`);
-  if (grain === 'year') return String(startDate.getFullYear());
-  if (grain === 'month') {
-    return startDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  }
-  if (grain === 'day' || start === end) {
-    return startDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-  const endDate = new Date(`${end}T00:00:00`);
-  const opts = { month: 'short', day: 'numeric' };
-  return `${startDate.toLocaleDateString(undefined, opts)} – ${endDate.toLocaleDateString(undefined, opts)}`;
 }
 
 function overlapsFocus(bucket, focusStart, focusEnd) {
@@ -98,29 +123,33 @@ function categoryTicks(items, xPct) {
 export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) {
   const plotRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(null);
+  const [metric, setMetric] = useState('distance');
   const sportMeta = useSportMeta();
   const meta = sportMeta(sport);
   const color = meta.color;
+  const grainLabel = GRAIN_LABEL[grain] || 'by day';
 
   const data = useMemo(() => {
     const buckets = series || [];
-    return buckets.map((bucket) => ({
-      start: bucket.start,
-      end: bucket.end,
-      meters: bucket.distances?.[sport] || 0,
-      value: toChartValue(bucket.distances?.[sport] || 0),
-      label: formatBucketLabel(grain, bucket.start, buckets.length),
-      isFocus: overlapsFocus(bucket, focusStart, focusEnd),
-    }));
-  }, [series, sport, grain, focusStart, focusEnd]);
+    return buckets.map((bucket) => {
+      const { raw, value, label } = bucketMetric(bucket, sport, metric);
+      return {
+        start: bucket.start,
+        end: bucket.end,
+        raw,
+        value,
+        barLabel: label,
+        label: formatBucketLabel(grain, bucket.start, buckets.length),
+        isFocus: overlapsFocus(bucket, focusStart, focusEnd),
+      };
+    });
+  }, [series, sport, grain, focusStart, focusEnd, metric]);
 
   useEffect(() => {
     setActiveIndex(null);
-  }, [sport, series, grain]);
+  }, [sport, series, grain, metric]);
 
-  const totalMeters = useMemo(() => data.reduce((sum, d) => sum + d.meters, 0), [data]);
-  const unit = 'km';
-  const grainLabel = GRAIN_LABEL[grain] || 'by day';
+  const totalRaw = useMemo(() => data.reduce((sum, d) => sum + d.raw, 0), [data]);
 
   const rawMax = Math.max(...data.map((d) => d.value), 0);
   const { max: scaleMax, ticks } = niceDomain(0, Math.max(rawMax, 1));
@@ -136,14 +165,6 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
   const yPct = (v) => (yScale(v) / HEIGHT) * 100;
   const axisTicksForPlot = categoryTicks(data, xPct);
 
-  const focusBucket = data.find((d) => d.isFocus);
-  const hovered = activeIndex != null ? data[activeIndex] : null;
-  const readout = hovered
-    ? `${formatReadoutDate(grain, hovered.start, hovered.end)} · ${formatMileage(sport, hovered.meters)}`
-    : focusBucket
-      ? `${formatReadoutDate(grain, focusBucket.start, focusBucket.end)} · ${formatMileage(sport, focusBucket.meters)}`
-      : `${formatMileage(sport, totalMeters)} total`;
-
   function indexFromClientX(clientX) {
     const plot = plotRef.current;
     if (!plot || data.length === 0) return 0;
@@ -154,18 +175,21 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
 
   if (data.length === 0) return null;
 
+  const title = metricTitle(metric, meta.label, grainLabel);
+
   return (
-    <div
-      className="mileage-chart"
-      onPointerLeave={() => setActiveIndex(null)}
-    >
+    <div className="mileage-chart" onPointerLeave={() => setActiveIndex(null)}>
       <div className="mileage-chart-header">
-        <div className="trend-section-title">
-          {meta.label} mileage {grainLabel} ({unit})
-        </div>
-        <p className="mileage-chart-readout" aria-live="polite">
-          {readout}
-        </p>
+        <div className="trend-section-title">{title}</div>
+        <label className="mileage-metric-picker">
+          <select value={metric} onChange={(e) => setMetric(e.target.value)} aria-label="Chart metric">
+            {METRICS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="chart-plot-row">
@@ -179,7 +203,7 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label={`${meta.label} mileage ${grainLabel}`}
+            aria-label={title}
           >
             {ticks.map((tick) => (
               <line
@@ -220,7 +244,7 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
                   className={`mileage-bar-label${d.isFocus || isActive ? ' is-emphasis' : ''}`}
                   style={{ left: `${xPct(i)}%`, top: `${yPct(d.value)}%` }}
                 >
-                  {formatBarLabel(sport, d.meters)}
+                  {d.barLabel}
                 </span>
               );
             })}
@@ -237,9 +261,7 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
           </div>
         ))}
       </div>
-      {totalMeters === 0 && (
-        <p className="chart-note">No distance logged for {meta.label.toLowerCase()} in this period.</p>
-      )}
+      {totalRaw === 0 && <p className="chart-note">{emptyNote(metric, meta.label.toLowerCase())}</p>}
     </div>
   );
 }

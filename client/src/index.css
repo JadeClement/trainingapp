@@ -2198,6 +2198,17 @@ button.danger {
   margin: 0;
 }
 
+.mileage-metric-picker select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-h);
+  background: var(--card-bg, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 28px 4px 10px;
+  cursor: pointer;
+}
+
 .mileage-chart .chart-plot {
   cursor: crosshair;
   position: relative;
@@ -2219,14 +2230,6 @@ button.danger {
 .mileage-bar-label.is-emphasis {
   color: var(--text-h);
   opacity: 1;
-}
-
-.mileage-chart-readout {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  color: var(--text-h);
 }
 
 .mileage-bar.is-active {

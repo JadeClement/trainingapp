@@ -148,7 +148,7 @@ function seriesBounds(period, start, end) {
   return { start: new Date(start), end: new Date(end) };
 }
 
-function emptyDistances(keys = SPORTS) {
+function emptyMetricMap(keys = SPORTS) {
   return Object.fromEntries(keys.map((sport) => [sport, 0]));
 }
 
@@ -250,20 +250,23 @@ export async function getStats(req, res) {
   );
   const series = buildSeriesBuckets(grain, seriesStart, seriesEnd, weekStartsOn).map((bucket) => ({
     ...bucket,
-    distances: emptyDistances(seriesKeys),
+    distances: emptyMetricMap(seriesKeys),
+    durations: emptyMetricMap(seriesKeys),
+    workoutCounts: emptyMetricMap(seriesKeys),
   }));
 
   for (const row of result.rows) {
     if (row.sport === 'rest') continue;
     const key = displayKeyForWorkout(row, featuredSports, pinnedActivityTypes);
     const meters = parseDistanceMeters(row.details?.distance);
+    const duration = row.actual_duration_seconds || 0;
     const inPeriod = row.scheduled_date >= periodStart && row.scheduled_date <= periodEnd;
     if (inPeriod) {
       if (!bySport.has(key)) {
         bySport.set(key, { sport: key, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 });
       }
       const bucket = bySport.get(key);
-      bucket.durationSeconds += row.actual_duration_seconds || 0;
+      bucket.durationSeconds += duration;
       bucket.distanceMeters += meters;
       bucket.workoutCount += 1;
     }
@@ -271,6 +274,8 @@ export async function getStats(req, res) {
     const idx = series.findIndex((b) => row.scheduled_date >= b.start && row.scheduled_date <= b.end);
     if (idx >= 0) {
       series[idx].distances[key] = (series[idx].distances[key] || 0) + meters;
+      series[idx].durations[key] = (series[idx].durations[key] || 0) + duration;
+      series[idx].workoutCounts[key] = (series[idx].workoutCounts[key] || 0) + 1;
     }
   }
 
