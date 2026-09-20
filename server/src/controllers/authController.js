@@ -8,6 +8,7 @@ import {
   MAX_PINNED_ACTIVITY_TYPES,
   normalizeFeaturedSports,
   normalizePinnedActivityTypes,
+  normalizeSportColors,
 } from '../services/activityTypes.js';
 
 const COOKIE_OPTIONS = {
@@ -134,7 +135,7 @@ export async function setWeekStart(req, res) {
   res.json({ user: await loadPublicUser(req.userId) });
 }
 
-// POST /api/auth/sport-prefs — { featuredSports: string[], pinnedActivityTypes: string[] }
+// POST /api/auth/sport-prefs — { featuredSports, pinnedActivityTypes, sportColors }
 export async function setSportPrefs(req, res) {
   const featuredSports = normalizeFeaturedSports(req.body.featuredSports);
   const pinnedActivityTypes = normalizePinnedActivityTypes(req.body.pinnedActivityTypes);
@@ -148,10 +149,18 @@ export async function setSportPrefs(req, res) {
       error: `pinnedActivityTypes must be known activity types (max ${MAX_PINNED_ACTIVITY_TYPES})`,
     });
   }
+  const sportColors = normalizeSportColors(req.body.sportColors, featuredSports, pinnedActivityTypes);
+  if (!sportColors) {
+    return res.status(400).json({
+      error: 'sportColors must map sports or pinned types to #rrggbb colors',
+    });
+  }
 
   await pool.query(
-    'UPDATE users SET featured_sports = $1, pinned_activity_types = $2 WHERE id = $3',
-    [featuredSports, pinnedActivityTypes, req.userId]
+    `UPDATE users
+     SET featured_sports = $1, pinned_activity_types = $2, sport_colors = $3::jsonb
+     WHERE id = $4`,
+    [featuredSports, pinnedActivityTypes, JSON.stringify(sportColors), req.userId]
   );
   res.json({ user: await loadPublicUser(req.userId) });
 }

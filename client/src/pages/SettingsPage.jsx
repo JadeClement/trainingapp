@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
-import { SPORTS, sportMeta } from '../dateUtils.js';
+import { SPORTS, sportMeta as defaultSportMeta } from '../dateUtils.js';
 import {
   ACTIVITY_CATEGORIES,
   DEFAULT_FEATURED_SPORTS,
   MAX_PINNED_ACTIVITY_TYPES,
+  PIN_PREFIX,
+  pinMeta,
 } from '../activityTypes.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth, useSportMeta } from '../context/AuthContext.jsx';
 
 const HISTORY_CHUNKS = [
   { days: 90, label: '90 days' },
@@ -50,7 +52,9 @@ export function SettingsPage() {
   const [pinnedActivityTypes, setPinnedActivityTypes] = useState(
     () => user?.pinnedActivityTypes ?? []
   );
+  const [sportColors, setSportColors] = useState(() => user?.sportColors ?? {});
   const [savingSportPrefs, setSavingSportPrefs] = useState(false);
+  const sportMeta = useSportMeta();
 
   const stravaParam = searchParams.get('strava');
 
@@ -147,7 +151,8 @@ export function SettingsPage() {
   useEffect(() => {
     setFeaturedSports(user?.featuredSports ?? [...DEFAULT_FEATURED_SPORTS]);
     setPinnedActivityTypes(user?.pinnedActivityTypes ?? []);
-  }, [user?.featuredSports, user?.pinnedActivityTypes]);
+    setSportColors(user?.sportColors ?? {});
+  }, [user?.featuredSports, user?.pinnedActivityTypes, user?.sportColors]);
 
   function toggleFeaturedSport(sport) {
     setFeaturedSports((prev) => {
@@ -160,18 +165,47 @@ export function SettingsPage() {
   }
 
   function togglePinnedType(type) {
+    const key = `${PIN_PREFIX}${type}`;
     setPinnedActivityTypes((prev) => {
-      if (prev.includes(type)) return prev.filter((t) => t !== type);
+      if (prev.includes(type)) {
+        setSportColors((colors) => {
+          const next = { ...colors };
+          delete next[key];
+          return next;
+        });
+        return prev.filter((t) => t !== type);
+      }
       if (prev.length >= MAX_PINNED_ACTIVITY_TYPES) return prev;
+      setSportColors((colors) => ({
+        ...colors,
+        [key]: colors[key] || pinMeta(type).color,
+      }));
       return [...prev, type];
     });
+  }
+
+  function setSportColor(key, value) {
+    setSportColors((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function colorFor(key) {
+    if (sportColors[key]) return sportColors[key];
+    return defaultSportMeta(key).color;
   }
 
   async function handleSaveSportPrefs() {
     setSavingSportPrefs(true);
     setError(null);
     try {
-      await setSportPrefs(featuredSports, pinnedActivityTypes);
+      const colorsPayload = { ...sportColors };
+      for (const s of SPORTS) {
+        if (!colorsPayload[s.value]) colorsPayload[s.value] = colorFor(s.value);
+      }
+      for (const type of pinnedActivityTypes) {
+        const key = `${PIN_PREFIX}${type}`;
+        if (!colorsPayload[key]) colorsPayload[key] = colorFor(key);
+      }
+      await setSportPrefs(featuredSports, pinnedActivityTypes, colorsPayload);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -183,7 +217,8 @@ export function SettingsPage() {
     JSON.stringify(featuredSports) !==
       JSON.stringify(user?.featuredSports ?? DEFAULT_FEATURED_SPORTS) ||
     JSON.stringify([...pinnedActivityTypes].sort()) !==
-      JSON.stringify([...(user?.pinnedActivityTypes ?? [])].sort());
+      JSON.stringify([...(user?.pinnedActivityTypes ?? [])].sort()) ||
+    JSON.stringify(sportColors) !== JSON.stringify(user?.sportColors ?? {});
 
   const unconfiguredSports = SPORTS.filter((s) => !zones.some((z) => z.sport === s.value));
 
@@ -277,10 +312,43 @@ export function SettingsPage() {
                 onChange={() => toggleFeaturedSport(s.value)}
                 disabled={savingSportPrefs}
               />
-              <span className="sport-dot" style={{ backgroundColor: s.color }} />
+              <span className="sport-dot" style={{ backgroundColor: colorFor(s.value) }} />
               {s.label}
             </label>
           ))}
+        </div>
+
+        <p className="settings-subhead">Colors</p>
+        <div className="sport-prefs-colors">
+          {SPORTS.map((s) => (
+            <label key={s.value} className="sport-color-row">
+              <span className="sport-dot" style={{ backgroundColor: colorFor(s.value) }} />
+              <span className="sport-color-label">{s.label}</span>
+              <input
+                type="color"
+                value={colorFor(s.value)}
+                onChange={(e) => setSportColor(s.value, e.target.value)}
+                disabled={savingSportPrefs}
+                aria-label={`${s.label} color`}
+              />
+            </label>
+          ))}
+          {pinnedActivityTypes.map((type) => {
+            const key = `${PIN_PREFIX}${type}`;
+            return (
+              <label key={key} className="sport-color-row">
+                <span className="sport-dot" style={{ backgroundColor: colorFor(key) }} />
+                <span className="sport-color-label">{type}</span>
+                <input
+                  type="color"
+                  value={colorFor(key)}
+                  onChange={(e) => setSportColor(key, e.target.value)}
+                  disabled={savingSportPrefs}
+                  aria-label={`${type} color`}
+                />
+              </label>
+            );
+          })}
         </div>
 
         <p className="settings-subhead">

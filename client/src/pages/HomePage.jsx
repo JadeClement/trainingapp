@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { summarizePeriod } from '../components/WeekStats.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth, useSportMeta } from '../context/AuthContext.jsx';
 import {
   addDays,
   formatDurationSeconds,
-  sportMeta,
   startOfWeek,
   toISODate,
 } from '../dateUtils.js';
@@ -45,6 +44,7 @@ function pickFeaturedRace(races) {
 
 export function HomePage({ athleteId }) {
   const { user } = useAuth();
+  const sportMeta = useSportMeta();
   const weekStartsOn = user?.weekStartsOn || 'monday';
 
   const [races, setRaces] = useState([]);

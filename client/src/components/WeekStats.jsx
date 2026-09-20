@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import {
   SPORTS,
-  sportMeta,
   isRestSport,
   workoutDistanceMeters,
   formatDurationFraction,
   formatDistanceFraction,
   formatDistanceMeters,
 } from '../dateUtils.js';
+import { useSportMeta } from '../context/AuthContext.jsx';
 
 function emptyBucket(sport) {
   return {
@@ -56,6 +56,7 @@ function formatPeriodDistance(row) {
 }
 
 export function WeekStats({ workouts, title = 'Week totals' }) {
+  const sportMeta = useSportMeta();
   const rows = useMemo(() => summarizePeriod(workouts), [workouts]);
   if (rows.length === 0) return null;
 

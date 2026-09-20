@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
-import { sportMeta, formatDurationSeconds } from '../dateUtils.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { formatDurationSeconds } from '../dateUtils.js';
+import { useAuth, useSportMeta } from '../context/AuthContext.jsx';
 
 const TABS = [
   { value: 'friends', label: 'Friends' },
@@ -44,6 +44,7 @@ export function PeoplePage() {
 }
 
 function FriendsSection() {
+  const sportMeta = useSportMeta();
   const [friends, setFriends] = useState([]);
   const [incoming, setIncoming] = useState([]);
   const [outgoing, setOutgoing] = useState([]);

@@ -1,4 +1,5 @@
-import { sportMeta, formatDurationSeconds, toISODate, isRestSport } from '../dateUtils.js';
+import { formatDurationSeconds, toISODate, isRestSport } from '../dateUtils.js';
+import { useSportMeta } from '../context/AuthContext.jsx';
 
 // The app's signature element: one tick per day, height mapped to that
 // day's planned/actual training load, split into stacked segments colored
@@ -6,6 +7,7 @@ import { sportMeta, formatDurationSeconds, toISODate, isRestSport } from '../dat
 // read of the week's rhythm, not decoration — sits above the week view's
 // day list.
 export function WeekLine({ days, workoutsByDate, onSelectDay }) {
+  const sportMetaFor = useSportMeta();
   const loads = days.map((day) => {
     const key = toISODate(day);
     const dayWorkouts = workoutsByDate[key] || [];
@@ -28,14 +30,14 @@ export function WeekLine({ days, workoutsByDate, onSelectDay }) {
     // even split rather than disappearing entirely. Segments not yet done
     // (planned/future) get a diagonal stripe instead of a solid fill.
     const segments = [...bySport.entries()].map(([sport, bucket]) => ({
-      color: sportMeta(sport).color,
+      color: sportMetaFor(sport).color,
       weight: bucket.seconds > 0 ? bucket.seconds : 1,
       pending: !bucket.allDone,
     }));
 
     if (segments.length === 0 && hasRest) {
       segments.push({
-        color: sportMeta('rest').color,
+        color: sportMetaFor('rest').color,
         weight: 1,
         pending: false,
       });

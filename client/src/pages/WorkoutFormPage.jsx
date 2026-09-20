@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { SPORTS, sportMeta, toISODate, isRestSport, formatDistanceLabel } from '../dateUtils.js';
+import { SPORTS, toISODate, isRestSport, formatDistanceLabel } from '../dateUtils.js';
+import { useSportMeta } from '../context/AuthContext.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { ActivityTypePicker } from '../components/ActivityTypePicker.jsx';
 
@@ -29,6 +30,7 @@ export function WorkoutFormPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const sportMeta = useSportMeta();
   const isEditing = Boolean(id);
   const athleteId = searchParams.get('athleteId');
 
@@ -218,7 +220,7 @@ export function WorkoutFormPage() {
                 type="button"
                 key={s.value}
                 className={`sport-option ${!activityType && sport === s.value ? 'active' : ''}`}
-                style={{ '--sport-color': s.color }}
+                style={{ '--sport-color': sportMeta(s.value).color }}
                 onClick={() => {
                   setSport(s.value);
                   setActivityType('');

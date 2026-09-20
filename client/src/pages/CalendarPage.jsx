@@ -10,13 +10,12 @@ import {
   getMonthGridDays,
   startOfMonth,
   addDays,
-  sportMeta,
   isRestSport,
   formatDurationSeconds,
   formatDistanceLabel,
   weekdayLabels,
 } from '../dateUtils.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth, useSportMeta } from '../context/AuthContext.jsx';
 import { useDragReschedule } from '../hooks/useDragReschedule.js';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -33,6 +32,7 @@ export function CalendarPage({ athleteId }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const sportMeta = useSportMeta();
   const weekStartsOn = user?.weekStartsOn === 'sunday' ? 'sunday' : 'monday';
   const viewMode = searchParams.get('view') === 'month' ? 'month' : 'week';
   const dateParam = searchParams.get('date');
@@ -409,6 +409,7 @@ function WorkoutChipBody({ workout }) {
 }
 
 function WorkoutRow({ workout, onToggle, isDragSource, dragHandlers }) {
+  const sportMeta = useSportMeta();
   const rest = isRestSport(workout.sport);
   const meta = sportMeta(workout.sport);
   const label = workout.details?.activityType || meta.label;

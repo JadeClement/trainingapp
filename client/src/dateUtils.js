@@ -14,11 +14,21 @@ export function isRestSport(sport) {
   return sport === 'rest';
 }
 
-export function sportMeta(sport) {
+export function sportMeta(sport, colorOverrides = null) {
   if (isRestSport(sport)) return REST_SPORT;
   const pinned = parsePinKey(sport);
-  if (pinned) return pinMeta(pinned);
-  return SPORTS.find((s) => s.value === sport) || SPORTS[SPORTS.length - 1];
+  if (pinned) {
+    const meta = pinMeta(pinned);
+    const color = colorOverrides?.[meta.value] ?? meta.color;
+    return { ...meta, color };
+  }
+  const base = SPORTS.find((s) => s.value === sport) || SPORTS[SPORTS.length - 1];
+  const color = colorOverrides?.[base.value] ?? base.color;
+  return { ...base, color };
+}
+
+export function defaultSportColors() {
+  return Object.fromEntries(SPORTS.map((s) => [s.value, s.color]));
 }
 
 export function toISODate(date) {

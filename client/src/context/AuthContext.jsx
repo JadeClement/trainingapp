@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from '../api.js';
+import { sportMeta } from '../dateUtils.js';
 
 const AuthContext = createContext(null);
 
@@ -52,8 +53,8 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }, []);
 
-  const setSportPrefs = useCallback(async (featuredSports, pinnedActivityTypes) => {
-    const data = await api.setSportPrefs(featuredSports, pinnedActivityTypes);
+  const setSportPrefs = useCallback(async (featuredSports, pinnedActivityTypes, sportColors) => {
+    const data = await api.setSportPrefs(featuredSports, pinnedActivityTypes, sportColors);
     setUser(data.user);
   }, []);
 
@@ -86,4 +87,9 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
+}
+
+export function useSportMeta() {
+  const { user } = useAuth();
+  return useCallback((sport) => sportMeta(sport, user?.sportColors), [user?.sportColors]);
 }

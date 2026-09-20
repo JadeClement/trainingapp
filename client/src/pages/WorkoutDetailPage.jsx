@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth, useSportMeta } from '../context/AuthContext.jsx';
 import { ActivityChartStack } from '../components/ActivityChartStack.jsx';
 import { LapsTable } from '../components/LapsTable.jsx';
 import { MatchStravaControl, isMatchedPlan } from '../components/MatchStravaControl.jsx';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { WorkoutComments } from '../components/WorkoutComments.jsx';
-import { sportMeta, formatDurationSeconds, formatDistanceLabel, isRestSport } from '../dateUtils.js';
+import { formatDurationSeconds, formatDistanceLabel, isRestSport } from '../dateUtils.js';
 import {
   paceOrSpeedSeries,
   paceOrSpeedUnit,
@@ -22,6 +22,7 @@ export function WorkoutDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const sportMeta = useSportMeta();
 
   const [workout, setWorkout] = useState(null);
   const [streams, setStreams] = useState(null);
@@ -230,6 +231,7 @@ export function WorkoutDetailPage() {
 }
 
 function StreamCharts({ sport, streams, maxHr, laps, canAddInterval, onAddInterval }) {
+  const sportMeta = useSportMeta();
   const hasAnyStream = Object.keys(streams).length > 0;
   if (!hasAnyStream) {
     return <p className="empty-hint">No detailed data available for this workout.</p>;

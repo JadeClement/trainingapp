@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { sportMeta, formatDistanceMeters } from '../dateUtils.js';
+import { formatDistanceMeters } from '../dateUtils.js';
 import { formatSportForDistance } from '../activityTypes.js';
+import { useSportMeta } from '../context/AuthContext.jsx';
 import { ValueAxis, axisTicks } from './ValueAxis.jsx';
 
 const WIDTH = 600;
@@ -90,6 +91,7 @@ function categoryTicks(items, xPct) {
 export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) {
   const plotRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(null);
+  const sportMeta = useSportMeta();
   const meta = sportMeta(sport);
   const color = meta.color;
 

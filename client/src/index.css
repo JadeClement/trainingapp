@@ -1182,6 +1182,35 @@ button.danger {
   margin-bottom: 16px;
 }
 
+.sport-prefs-colors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sport-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-direction: row !important;
+}
+
+.sport-color-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.sport-color-row input[type='color'] {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
 .sport-prefs-pins {
   display: flex;
   flex-direction: column;

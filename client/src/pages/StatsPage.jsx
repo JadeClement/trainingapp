@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
-import { sportMeta, formatDurationSeconds, toISODate, addDays } from '../dateUtils.js';
+import { formatDurationSeconds, toISODate, addDays } from '../dateUtils.js';
+import { useSportMeta } from '../context/AuthContext.jsx';
 import { MileageBarChart } from '../components/MileageBarChart.jsx';
 
 const PERIODS = [
@@ -78,6 +79,7 @@ function shiftAnchor(date, period, direction, days) {
 }
 
 export function StatsPage({ athleteId }) {
+  const sportMeta = useSportMeta();
   const [period, setPeriod] = useState('week');
   const [customDays, setCustomDays] = useState(DEFAULT_CUSTOM_DAYS);
   const [daysDraft, setDaysDraft] = useState(String(DEFAULT_CUSTOM_DAYS));

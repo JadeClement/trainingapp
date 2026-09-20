@@ -117,6 +117,33 @@ export function normalizePinnedActivityTypes(input) {
   return ALLOWED_ACTIVITY_TYPES.filter((type) => seen.has(type));
 }
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+function isAllowedColorKey(key) {
+  if (FEATURED_SPORT_OPTIONS.includes(key)) return true;
+  const pinned = parsePinKey(key);
+  return Boolean(pinned && ACTIVITY_TYPE_SPORT.has(pinned));
+}
+
+// Returns a cleaned map, or null if the payload is invalid. Keeps colors for
+// the five base sports plus currently pinned activity types.
+export function normalizeSportColors(input, _featuredSports, pinnedActivityTypes) {
+  if (input == null) return {};
+  if (typeof input !== 'object' || Array.isArray(input)) return null;
+
+  const allowedKeys = new Set([
+    ...FEATURED_SPORT_OPTIONS,
+    ...pinnedActivityTypes.map((type) => pinKey(type)),
+  ]);
+  const normalized = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!isAllowedColorKey(key) || !allowedKeys.has(key)) continue;
+    if (typeof value !== 'string' || !HEX_COLOR.test(value)) return null;
+    normalized[key] = value.toLowerCase();
+  }
+  return normalized;
+}
+
 export function displayKeyForWorkout(row, featuredSports, pinnedActivityTypes) {
   const type = row.details?.activityType;
   if (type && pinnedActivityTypes.includes(type)) return pinKey(type);
