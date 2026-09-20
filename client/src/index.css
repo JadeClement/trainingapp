@@ -1175,6 +1175,40 @@ button.danger {
   margin-bottom: 8px;
 }
 
+.sport-prefs-featured {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+}
+
+.sport-prefs-pins {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.sport-prefs-pin-group-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.sport-prefs-pin-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.sport-prefs-pin-types .checkbox-label.is-disabled {
+  opacity: 0.45;
+}
+
 .settings-status a {
   color: var(--accent);
 }

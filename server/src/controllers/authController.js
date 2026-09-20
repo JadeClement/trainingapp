@@ -4,6 +4,11 @@ import jwt from 'jsonwebtoken';
 import pool from '../db/pool.js';
 import { loadPublicUser } from '../services/userView.js';
 import { sendMail } from '../services/mail.js';
+import {
+  MAX_PINNED_ACTIVITY_TYPES,
+  normalizeFeaturedSports,
+  normalizePinnedActivityTypes,
+} from '../services/activityTypes.js';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -126,6 +131,28 @@ export async function setWeekStart(req, res) {
   }
 
   await pool.query('UPDATE users SET week_starts_on = $1 WHERE id = $2', [weekStartsOn, req.userId]);
+  res.json({ user: await loadPublicUser(req.userId) });
+}
+
+// POST /api/auth/sport-prefs — { featuredSports: string[], pinnedActivityTypes: string[] }
+export async function setSportPrefs(req, res) {
+  const featuredSports = normalizeFeaturedSports(req.body.featuredSports);
+  const pinnedActivityTypes = normalizePinnedActivityTypes(req.body.pinnedActivityTypes);
+  if (!featuredSports) {
+    return res.status(400).json({
+      error: 'featuredSports must be a non-empty subset of swim, bike, run, strength, other',
+    });
+  }
+  if (!pinnedActivityTypes) {
+    return res.status(400).json({
+      error: `pinnedActivityTypes must be known activity types (max ${MAX_PINNED_ACTIVITY_TYPES})`,
+    });
+  }
+
+  await pool.query(
+    'UPDATE users SET featured_sports = $1, pinned_activity_types = $2 WHERE id = $3',
+    [featuredSports, pinnedActivityTypes, req.userId]
+  );
   res.json({ user: await loadPublicUser(req.userId) });
 }
 

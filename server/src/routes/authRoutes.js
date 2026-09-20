@@ -5,6 +5,7 @@ import {
   logout,
   me,
   setWeekStart,
+  setSportPrefs,
   forgotPassword,
   validateResetToken,
   resetPassword,
@@ -22,5 +23,6 @@ router.get('/reset-password', asyncHandler(validateResetToken));
 router.post('/reset-password', asyncHandler(resetPassword));
 router.get('/me', requireAuth, asyncHandler(me));
 router.post('/week-start', requireAuth, asyncHandler(setWeekStart));
+router.post('/sport-prefs', requireAuth, asyncHandler(setSportPrefs));
 
 export default router;

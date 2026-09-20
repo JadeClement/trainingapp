@@ -1,3 +1,5 @@
+import { formatSportForDistance, parsePinKey, pinMeta } from './activityTypes.js';
+
 export const SPORTS = [
   { value: 'swim', label: 'Swim', color: '#2f7c9e' },
   { value: 'bike', label: 'Bike', color: '#4f8f52' },
@@ -14,6 +16,8 @@ export function isRestSport(sport) {
 
 export function sportMeta(sport) {
   if (isRestSport(sport)) return REST_SPORT;
+  const pinned = parsePinKey(sport);
+  if (pinned) return pinMeta(pinned);
   return SPORTS.find((s) => s.value === sport) || SPORTS[SPORTS.length - 1];
 }
 
@@ -116,7 +120,7 @@ function formatKmAmount(meters, decimals) {
 }
 
 function kmDecimals(sport) {
-  return sport === 'swim' ? 3 : undefined;
+  return formatSportForDistance(sport) === 'swim' ? 3 : undefined;
 }
 
 export function formatDistanceMeters(sport, meters) {

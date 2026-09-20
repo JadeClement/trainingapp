@@ -1,8 +1,5 @@
-// Specific activity types grouped by category, similar to Garmin Connect's
-// activity type picker. Each type maps to one of the broad `sport` enum
-// buckets the backend stores (swim/bike/run/strength/other) so no schema
-// change is needed — the specific label is kept in workouts.details.activityType.
-
+// Mirrors client/src/activityTypes.js so sport-pref validation and stats
+// distance formatting stay aligned with the manual activity-type picker.
 export const ACTIVITY_CATEGORIES = [
   {
     name: 'Running',
@@ -60,9 +57,10 @@ export const ACTIVITY_CATEGORIES = [
   },
 ];
 
+export const FEATURED_SPORT_OPTIONS = ['swim', 'bike', 'run', 'strength', 'other'];
+export const DEFAULT_FEATURED_SPORTS = ['swim', 'bike', 'run'];
 export const MAX_PINNED_ACTIVITY_TYPES = 5;
 export const PIN_PREFIX = 'pin:';
-export const DEFAULT_FEATURED_SPORTS = ['swim', 'bike', 'run'];
 
 const ACTIVITY_TYPE_SPORT = new Map();
 for (const category of ACTIVITY_CATEGORIES) {
@@ -71,8 +69,14 @@ for (const category of ACTIVITY_CATEGORIES) {
   }
 }
 
+export const ALLOWED_ACTIVITY_TYPES = [...ACTIVITY_TYPE_SPORT.keys()];
+
 export function sportForActivityType(activityType) {
   return ACTIVITY_TYPE_SPORT.get(activityType) || 'other';
+}
+
+export function pinKey(activityType) {
+  return `${PIN_PREFIX}${activityType}`;
 }
 
 export function parsePinKey(key) {
@@ -83,19 +87,39 @@ export function parsePinKey(key) {
 export function formatSportForDistance(displayKey) {
   const pinned = parsePinKey(displayKey);
   if (pinned) return sportForActivityType(pinned);
-  return displayKey;
+  if (FEATURED_SPORT_OPTIONS.includes(displayKey)) return displayKey;
+  return 'other';
 }
 
-const PIN_COLORS = ['#c47a3a', '#3a7a8c', '#6b5b95', '#8c5a6e', '#4a7a5c'];
-
-export function pinMeta(activityType) {
-  let hash = 0;
-  for (let i = 0; i < activityType.length; i++) {
-    hash = (hash * 31 + activityType.charCodeAt(i)) >>> 0;
+export function normalizeFeaturedSports(input) {
+  if (!Array.isArray(input)) return null;
+  const seen = new Set();
+  const normalized = [];
+  for (const value of input) {
+    if (!FEATURED_SPORT_OPTIONS.includes(value) || seen.has(value)) continue;
+    seen.add(value);
+    normalized.push(value);
   }
-  return {
-    value: `${PIN_PREFIX}${activityType}`,
-    label: activityType,
-    color: PIN_COLORS[hash % PIN_COLORS.length],
-  };
+  if (normalized.length === 0) return null;
+  return FEATURED_SPORT_OPTIONS.filter((sport) => seen.has(sport));
+}
+
+export function normalizePinnedActivityTypes(input) {
+  if (!Array.isArray(input)) return null;
+  const seen = new Set();
+  const normalized = [];
+  for (const value of input) {
+    if (!ACTIVITY_TYPE_SPORT.has(value) || seen.has(value)) continue;
+    seen.add(value);
+    normalized.push(value);
+  }
+  if (normalized.length > MAX_PINNED_ACTIVITY_TYPES) return null;
+  return ALLOWED_ACTIVITY_TYPES.filter((type) => seen.has(type));
+}
+
+export function displayKeyForWorkout(row, featuredSports, pinnedActivityTypes) {
+  const type = row.details?.activityType;
+  if (type && pinnedActivityTypes.includes(type)) return pinKey(type);
+  if (featuredSports.includes(row.sport)) return row.sport;
+  return 'other';
 }

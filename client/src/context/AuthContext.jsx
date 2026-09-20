@@ -52,6 +52,11 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }, []);
 
+  const setSportPrefs = useCallback(async (featuredSports, pinnedActivityTypes) => {
+    const data = await api.setSportPrefs(featuredSports, pinnedActivityTypes);
+    setUser(data.user);
+  }, []);
+
   const resetPassword = useCallback(async (token, password, confirmPassword) => {
     const data = await api.resetPassword({ token, password, confirmPassword });
     setUser(data.user);
@@ -68,6 +73,7 @@ export function AuthProvider({ children }) {
         createCoachProfile,
         setAccountMode,
         setWeekStart,
+        setSportPrefs,
         resetPassword,
       }}
     >

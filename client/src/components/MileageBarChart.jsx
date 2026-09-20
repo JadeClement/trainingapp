@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { sportMeta, formatDistanceMeters } from '../dateUtils.js';
+import { formatSportForDistance } from '../activityTypes.js';
 import { ValueAxis, axisTicks } from './ValueAxis.jsx';
 
 const WIDTH = 600;
@@ -25,7 +26,7 @@ function toChartValue(meters) {
 }
 
 function formatMileage(sport, meters) {
-  return formatDistanceMeters(sport, meters) || (sport === 'swim' ? '0.000km' : '0km');
+  return formatDistanceMeters(sport, meters) || (formatSportForDistance(sport) === 'swim' ? '0.000km' : '0km');
 }
 
 function formatBucketLabel(grain, start, bucketCount) {

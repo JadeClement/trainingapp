@@ -3,6 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.jsx';
 import { SPORTS, sportMeta } from '../dateUtils.js';
+import {
+  ACTIVITY_CATEGORIES,
+  DEFAULT_FEATURED_SPORTS,
+  MAX_PINNED_ACTIVITY_TYPES,
+} from '../activityTypes.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const HISTORY_CHUNKS = [
@@ -21,7 +26,7 @@ function formatImportedFrom(iso) {
 }
 
 export function SettingsPage() {
-  const { user, createCoachProfile, setWeekStart } = useAuth();
+  const { user, createCoachProfile, setWeekStart, setSportPrefs } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +44,13 @@ export function SettingsPage() {
   const [newMaxHr, setNewMaxHr] = useState('');
   const [savingZone, setSavingZone] = useState(false);
   const [savingWeekStart, setSavingWeekStart] = useState(false);
+  const [featuredSports, setFeaturedSports] = useState(
+    () => user?.featuredSports ?? [...DEFAULT_FEATURED_SPORTS]
+  );
+  const [pinnedActivityTypes, setPinnedActivityTypes] = useState(
+    () => user?.pinnedActivityTypes ?? []
+  );
+  const [savingSportPrefs, setSavingSportPrefs] = useState(false);
 
   const stravaParam = searchParams.get('strava');
 
@@ -132,6 +144,47 @@ export function SettingsPage() {
     }
   }
 
+  useEffect(() => {
+    setFeaturedSports(user?.featuredSports ?? [...DEFAULT_FEATURED_SPORTS]);
+    setPinnedActivityTypes(user?.pinnedActivityTypes ?? []);
+  }, [user?.featuredSports, user?.pinnedActivityTypes]);
+
+  function toggleFeaturedSport(sport) {
+    setFeaturedSports((prev) => {
+      if (prev.includes(sport)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((s) => s !== sport);
+      }
+      return SPORTS.map((s) => s.value).filter((value) => value === sport || prev.includes(value));
+    });
+  }
+
+  function togglePinnedType(type) {
+    setPinnedActivityTypes((prev) => {
+      if (prev.includes(type)) return prev.filter((t) => t !== type);
+      if (prev.length >= MAX_PINNED_ACTIVITY_TYPES) return prev;
+      return [...prev, type];
+    });
+  }
+
+  async function handleSaveSportPrefs() {
+    setSavingSportPrefs(true);
+    setError(null);
+    try {
+      await setSportPrefs(featuredSports, pinnedActivityTypes);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingSportPrefs(false);
+    }
+  }
+
+  const sportPrefsDirty =
+    JSON.stringify(featuredSports) !==
+      JSON.stringify(user?.featuredSports ?? DEFAULT_FEATURED_SPORTS) ||
+    JSON.stringify([...pinnedActivityTypes].sort()) !==
+      JSON.stringify([...(user?.pinnedActivityTypes ?? [])].sort());
+
   const unconfiguredSports = SPORTS.filter((s) => !zones.some((z) => z.sport === s.value));
 
   function openAddZone() {
@@ -203,6 +256,73 @@ export function SettingsPage() {
             disabled={savingWeekStart}
           >
             Sunday
+          </button>
+        </div>
+      </section>
+
+      <section className="settings-card">
+        <h3>Stats sports</h3>
+        <p className="settings-status">
+          Featured sports stay as their own rows on Stats. Everything else rolls into Other,
+          unless you pin a specific activity type.
+        </p>
+
+        <p className="settings-subhead">Featured</p>
+        <div className="sport-prefs-featured">
+          {SPORTS.map((s) => (
+            <label key={s.value} className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={featuredSports.includes(s.value)}
+                onChange={() => toggleFeaturedSport(s.value)}
+                disabled={savingSportPrefs}
+              />
+              <span className="sport-dot" style={{ backgroundColor: s.color }} />
+              {s.label}
+            </label>
+          ))}
+        </div>
+
+        <p className="settings-subhead">
+          Pin activity types
+          <span className="settings-status">
+            {' '}
+            ({pinnedActivityTypes.length}/{MAX_PINNED_ACTIVITY_TYPES})
+          </span>
+        </p>
+        <div className="sport-prefs-pins">
+          {ACTIVITY_CATEGORIES.map((category) => (
+            <div key={category.name} className="sport-prefs-pin-group">
+              <p className="sport-prefs-pin-group-title">{category.name}</p>
+              <div className="sport-prefs-pin-types">
+                {category.types.map((type) => {
+                  const checked = pinnedActivityTypes.includes(type);
+                  const atCap = !checked && pinnedActivityTypes.length >= MAX_PINNED_ACTIVITY_TYPES;
+                  return (
+                    <label key={type} className={`checkbox-label${atCap ? ' is-disabled' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePinnedType(type)}
+                        disabled={savingSportPrefs || atCap}
+                      />
+                      {type}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="settings-actions">
+          <button
+            type="button"
+            className="primary"
+            onClick={handleSaveSportPrefs}
+            disabled={savingSportPrefs || !sportPrefsDirty}
+          >
+            {savingSportPrefs ? 'Saving…' : 'Save sports'}
           </button>
         </div>
       </section>

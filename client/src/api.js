@@ -137,6 +137,11 @@ export const api = {
   setAccountMode: (mode) => request('/coach/mode', { method: 'POST', body: JSON.stringify({ mode }) }),
   setWeekStart: (weekStartsOn) =>
     request('/auth/week-start', { method: 'POST', body: JSON.stringify({ weekStartsOn }) }),
+  setSportPrefs: (featuredSports, pinnedActivityTypes) =>
+    request('/auth/sport-prefs', {
+      method: 'POST',
+      body: JSON.stringify({ featuredSports, pinnedActivityTypes }),
+    }),
 
   listCoachRelationships: () => request('/coach/relationships'),
   sendAthleteRequest: (email) =>

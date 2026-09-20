@@ -1,4 +1,10 @@
 import pool from '../db/pool.js';
+import {
+  DEFAULT_FEATURED_SPORTS,
+  displayKeyForWorkout,
+  formatSportForDistance,
+  pinKey,
+} from '../services/activityTypes.js';
 
 const SPORTS = ['swim', 'bike', 'run', 'strength', 'other'];
 const PERIODS = ['week', 'month', 'year', 'custom'];
@@ -142,8 +148,8 @@ function seriesBounds(period, start, end) {
   return { start: new Date(start), end: new Date(end) };
 }
 
-function emptyDistances() {
-  return Object.fromEntries(SPORTS.map((sport) => [sport, 0]));
+function emptyDistances(keys = SPORTS) {
+  return Object.fromEntries(keys.map((sport) => [sport, 0]));
 }
 
 function buildSeriesBuckets(grain, start, end, weekStartsOn) {
@@ -213,6 +219,19 @@ export async function getStats(req, res) {
   const anchor = parseAnchorDate(req.query.date);
   const pref = await pool.query('SELECT week_starts_on FROM users WHERE id = $1', [req.userId]);
   const weekStartsOn = pref.rows[0]?.week_starts_on === 'sunday' ? 'sunday' : 'monday';
+
+  // Sport display prefs belong to the athlete whose workouts we're aggregating.
+  const athletePref = await pool.query(
+    `SELECT featured_sports, pinned_activity_types FROM users WHERE id = $1`,
+    [req.targetUserId]
+  );
+  const featuredSports = athletePref.rows[0]?.featured_sports?.length
+    ? athletePref.rows[0].featured_sports
+    : [...DEFAULT_FEATURED_SPORTS];
+  const pinnedActivityTypes = athletePref.rows[0]?.pinned_activity_types ?? [];
+  const seriesKeys = [...featuredSports, ...pinnedActivityTypes.map((type) => pinKey(type))];
+  if (!seriesKeys.includes('other')) seriesKeys.push('other');
+
   const { start, end } = periodBounds(period, anchor, weekStartsOn, days);
   const grain = seriesGrain(period, days);
   const { start: seriesStart, end: seriesEnd } = seriesBounds(period, start, end);
@@ -227,21 +246,24 @@ export async function getStats(req, res) {
     [req.targetUserId, toDateString(seriesStart), toDateString(seriesEnd)]
   );
 
-  const bySport = new Map(SPORTS.map((sport) => [sport, { sport, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 }]));
+  const bySport = new Map(
+    seriesKeys.map((sport) => [sport, { sport, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 }])
+  );
   const series = buildSeriesBuckets(grain, seriesStart, seriesEnd, weekStartsOn).map((bucket) => ({
     ...bucket,
-    distances: emptyDistances(),
+    distances: emptyDistances(seriesKeys),
   }));
 
   for (const row of result.rows) {
     if (row.sport === 'rest') continue;
+    const key = displayKeyForWorkout(row, featuredSports, pinnedActivityTypes);
     const meters = parseDistanceMeters(row.details?.distance);
     const inPeriod = row.scheduled_date >= periodStart && row.scheduled_date <= periodEnd;
     if (inPeriod) {
-      if (!bySport.has(row.sport)) {
-        bySport.set(row.sport, { sport: row.sport, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 });
+      if (!bySport.has(key)) {
+        bySport.set(key, { sport: key, durationSeconds: 0, distanceMeters: 0, workoutCount: 0 });
       }
-      const bucket = bySport.get(row.sport);
+      const bucket = bySport.get(key);
       bucket.durationSeconds += row.actual_duration_seconds || 0;
       bucket.distanceMeters += meters;
       bucket.workoutCount += 1;
@@ -249,7 +271,7 @@ export async function getStats(req, res) {
 
     const idx = series.findIndex((b) => row.scheduled_date >= b.start && row.scheduled_date <= b.end);
     if (idx >= 0) {
-      series[idx].distances[row.sport] = (series[idx].distances[row.sport] || 0) + meters;
+      series[idx].distances[key] = (series[idx].distances[key] || 0) + meters;
     }
   }
 
@@ -260,7 +282,7 @@ export async function getStats(req, res) {
       sport: s.sport,
       durationSeconds: s.durationSeconds,
       distanceMeters: s.distanceMeters,
-      distance: formatDistanceMeters(s.sport, s.distanceMeters),
+      distance: formatDistanceMeters(formatSportForDistance(s.sport), s.distanceMeters),
       workoutCount: s.workoutCount,
     }));
 
