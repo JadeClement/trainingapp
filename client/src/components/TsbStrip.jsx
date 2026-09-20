@@ -11,8 +11,8 @@ export function TsbStrip({ data, activeIndex = null }) {
   if (data.length === 0) return null;
 
   const values = data.map((d) => d.tsb);
-  const maxAbs = Math.max(...values.map((v) => Math.abs(v)), 10);
-  const ticks = symmetricAxisTicks(maxAbs);
+  const dataMaxAbs = Math.max(...values.map((v) => Math.abs(v)), 10);
+  const { ticks, maxAbs } = symmetricAxisTicks(dataMaxAbs);
   const zeroY = HEIGHT / 2;
   const scale = (HEIGHT / 2 - PADDING_Y) / maxAbs;
 

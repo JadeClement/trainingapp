@@ -1,5 +1,5 @@
 import { DateAxis } from './DateAxis.jsx';
-import { ValueAxis, axisTicks } from './ValueAxis.jsx';
+import { ValueAxis, niceDomain } from './ValueAxis.jsx';
 
 const WIDTH = 600;
 const HEIGHT = 160;
@@ -9,10 +9,10 @@ export function CtlTrendChart({ data, activeIndex = null }) {
   if (data.length === 0) return null;
 
   const values = data.map((d) => d.ctl);
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 10);
+  const dataMin = Math.min(...values, 0);
+  const dataMax = Math.max(...values, 10);
+  const { min, max, ticks } = niceDomain(dataMin, dataMax);
   const span = max - min || 1;
-  const ticks = axisTicks(min, max);
 
   const xScale = (i) => PADDING + (i / (data.length - 1 || 1)) * (WIDTH - PADDING * 2);
   const yScale = (v) => HEIGHT - PADDING - ((v - min) / span) * (HEIGHT - PADDING * 2);

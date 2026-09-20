@@ -15,36 +15,44 @@ function formatAxisValue(value) {
   return String(Number(value.toPrecision(4)));
 }
 
-export function axisTicks(min, max, targetCount = 4) {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+// Round the data range out to a nice top/bottom, then place a tick on every
+// step so labels cover the full plot (e.g. 387km → 0, 100, 200, 300, 400).
+export function niceDomain(min, max, targetCount = 5) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return { min: 0, max: 1, step: 1, ticks: [0, 1] };
+  }
   if (max < min) [min, max] = [max, min];
-  if (max === min) return [min];
+
+  if (max === min) {
+    if (max === 0) return { min: 0, max: 1, step: 1, ticks: [0, 1] };
+    const pad = Math.abs(max) * 0.1 || 1;
+    return niceDomain(min - pad, max + pad, targetCount);
+  }
 
   const step = niceStep(max - min, targetCount);
-  const start = Math.ceil(min / step - 1e-9) * step;
+  let domainMin = Math.floor(min / step + 1e-9) * step;
+  let domainMax = Math.ceil(max / step - 1e-9) * step;
+  if (domainMax <= domainMin) domainMax = domainMin + step;
+
+  // Prefer starting at 0 when the data is non-negative.
+  if (min >= 0 && domainMin < 0) domainMin = 0;
+
   const ticks = [];
-  for (let v = start; v <= max + step * 1e-9; v += step) {
+  for (let v = domainMin; v <= domainMax + step * 1e-9; v += step) {
     ticks.push(Number(v.toPrecision(10)));
   }
 
-  // Nice steps can jump from 0 straight to a large top (e.g. 0, 200). Always
-  // keep at least one label between the ends so the axis isn't empty.
-  if (ticks.length >= 2) {
-    const lo = ticks[0];
-    const hi = ticks[ticks.length - 1];
-    const hasInterior = ticks.some((t) => t > lo && t < hi);
-    if (!hasInterior && hi > lo) {
-      ticks.splice(1, 0, Number(((lo + hi) / 2).toPrecision(10)));
-    }
-  }
+  return { min: domainMin, max: domainMax, step, ticks };
+}
 
-  return ticks;
+export function axisTicks(min, max, targetCount = 5) {
+  return niceDomain(min, max, targetCount).ticks;
 }
 
 export function symmetricAxisTicks(maxAbs, targetCount = 3) {
-  const pos = axisTicks(0, maxAbs, targetCount);
+  const { max, ticks: pos } = niceDomain(0, maxAbs, targetCount);
   const neg = pos.filter((v) => v !== 0).map((v) => -v).reverse();
-  return [...neg, ...pos];
+  return { ticks: [...neg, ...pos], maxAbs: max };
 }
 
 export function ValueAxis({ ticks, yPct }) {

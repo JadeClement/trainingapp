@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDistanceMeters } from '../dateUtils.js';
 import { formatSportForDistance } from '../activityTypes.js';
 import { useSportMeta } from '../context/AuthContext.jsx';
-import { ValueAxis, axisTicks } from './ValueAxis.jsx';
+import { ValueAxis, niceDomain } from './ValueAxis.jsx';
 
 const WIDTH = 600;
 const HEIGHT = 176;
@@ -123,9 +123,7 @@ export function MileageBarChart({ series, grain, sport, focusStart, focusEnd }) 
   const grainLabel = GRAIN_LABEL[grain] || 'by day';
 
   const rawMax = Math.max(...data.map((d) => d.value), 0);
-  const domainMax = Math.max(rawMax, 1);
-  const ticks = axisTicks(0, domainMax);
-  const scaleMax = Math.max(domainMax, ticks[ticks.length - 1] || domainMax);
+  const { max: scaleMax, ticks } = niceDomain(0, Math.max(rawMax, 1));
 
   const innerWidth = WIDTH - PADDING_X * 2;
   const innerHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
